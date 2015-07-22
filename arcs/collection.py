@@ -52,6 +52,7 @@ def sample_domains(df, n=10, min_query_count=10):
     domain_counts = df["domain"].value_counts()
     df = pd.DataFrame({"domain": domain_counts.keys(),
                        "count": domain_counts.values})
+
     df = df[df["count"] >= min_query_count]
 
     weights = df["count"] / df["count"].sum()

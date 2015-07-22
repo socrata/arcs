@@ -22,5 +22,3 @@ such as normalized discounted cumulative gain (NDCG) and mean average precision
 [MAP](https://en.wikipedia.org/wiki/Information_retrieval#Mean_average_precision)
 
 ["Measuring Search Relevance", Hugh Williams](http://hughewilliams.com/2014/10/11/measuring-search-relevance/)
-
-["Evaluation of Ranked Retrieval Results", Stanford IR book](http://nlp.stanford.edu/IR-book/html/htmledition/evaluation-of-ranked-retrieval-results-1.html)
