@@ -98,7 +98,7 @@ def _request_filter(request):
 _FXF_RE = re.compile("^[a-z0-9]{4}-[a-z0-9]{4}$")
 
 def _query_filter(query):
-    return not _FXF_RE.match(query, re.IGNORECASE)
+    return bool(query) and not _FXF_RE.match(query, re.IGNORECASE)
 
 def apply_filters(log_record):
     return _domain_filter(log_record["domain"]) and \

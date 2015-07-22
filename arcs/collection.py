@@ -115,12 +115,12 @@ def _transform_cetera_result(result):
     desc_sentences = desc.split("\n") if desc else []
     desc = desc_sentences[0] if desc_sentences else desc
 
-    return (result["link"],
+    return (result["resource"].get("name"),
+            result["link"],
             desc,
-            result["resource"].get("updatedAt"),
-            result["resource"].get("name"))
+            result["resource"].get("updatedAt"))
 
-_logo_uid_re = re.compile(r"^[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}$")
+_LOGO_UID_RE = re.compile(r"^[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}$")
 
 def get_domain_image(domain):
     """Get the site logo for the specified domain."""
@@ -144,7 +144,7 @@ def get_domain_image(domain):
 
         url = data.get("value", {}).get("images", {}).get("logo_header", {}).get("href")
 
-        if url and _logo_uid_re.match(url):
+        if url and _LOGO_UID_RE.match(url):
             url = "/api/assets/{0}".format(url)
 
         if not (url.startswith("http") or url.startswith("https")):
@@ -164,11 +164,12 @@ def get_domain_image(domain):
         print "Response: %s" % response.content if response else None
         print "Exception: %s" % e.message
 
-csv_columns=['domain', 'domain logo url', 'query', 'result position',
-             'name', 'link', 'description', 'updatedAt']
+CSV_COLUMNS = ['domain', 'domain logo url', 'query', 'result position',
+               'name', 'link', 'description', 'updatedAt']
 
-def collect_task_data(query_logs_json, num_domains, queries_per_domain, num_results,
-                      output_file=None, cetera_host=None, cetera_port=None, db_conn_str=None):
+def collect_task_data(query_logs_json, num_domains, queries_per_domain,
+                      num_results, output_file=None, cetera_host=None,
+                      cetera_port=None, db_conn_str=None):
     """
     Do frequency weighted sampling of query logs for domain-specific queries.
     Send those queries as requests to Cetera, collecting n=num_results results
@@ -188,7 +189,7 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain, num_resu
 
     logging.info("Determining public domains")
 
-    public_domains = get_public_domains(db_conn_str or 
+    public_domains = get_public_domains(db_conn_str or
                                         os.environ["METADB_CONN_STR"])
     public_domains = set(public_domains["domain"])
 
@@ -214,7 +215,7 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain, num_resu
         list(chain.from_iterable(
             [[(d, logos.get(d), q, r[0]) + _transform_cetera_result(r[1]) for r in rs]
              for d, q, rs in results])),
-        columns=csv_columns)
+        columns=CSV_COLUMNS)
 
     logging.info("Writing out results as CSV")
 
