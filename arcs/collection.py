@@ -22,7 +22,14 @@ def get_top_queries(df):
     return df["query"].value_counts
 
 def get_public_domains(db_conn_str):
-    """Determine public domains from metadb."""
+    """
+    Determine public domains from metadb.
+
+    It feels a little cheesy to use the Pandas `read_sql` function here, since
+    we promptly convert the relevant columns into sets. However, it also seemed
+    silly to incorporate another library for interacting w/ SQL when we're
+    already making heavy use of Pandas.
+    """
 
     conn = create_engine(db_conn_str)
 
@@ -99,26 +106,28 @@ def get_cetera_results(domain_query_pairs, cetera_host=None, cetera_port=None,
     def _get_result_list(domain, query):
         return list(enumerate(
             requests.get(
-                url, params.copy(domains=domain, search=query)
+                url, params.copy(domains=domain, q=query)
             ).json()["results"]))
 
     return [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
+
+_NEWLINE_RE = re.compile(r"[\r\n]+")
+_SENTENCE_BREAK_RE = re.compile(r"[.?!]\s+")
 
 def _transform_cetera_result(result):
     """
     Utility function for transforming Cetera result dictionary into something
     more suitable for the crowdsourcing task. Presently, we're grabbing name,
-    link (ie. URL), the first sentence of description, and the updatedAt
-    timestamp.
+    link (ie. URL), and the first sentence of description.
     """
     desc = result["resource"].get("description")
-    desc_sentences = desc.split("\n") if desc else []
+    desc_sentences = _NEWLINE_RE.split(desc) if desc else []
     desc = desc_sentences[0] if desc_sentences else desc
+    desc = _SENTENCE_BREAK_RE.split(desc)[0] if desc else desc
 
     return (result["resource"].get("name"),
             result["link"],
-            desc,
-            result["resource"].get("updatedAt"))
+            desc)
 
 _LOGO_UID_RE = re.compile(r"^[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}$")
 
@@ -164,8 +173,8 @@ def get_domain_image(domain):
         print "Response: %s" % response.content if response else None
         print "Exception: %s" % e.message
 
-CSV_COLUMNS = ['domain', 'domain logo url', 'query', 'result position',
-               'name', 'link', 'description', 'updatedAt']
+CSV_COLUMNS = ['domain', 'domain_logo_url', 'query', 'result_position',
+               'name', 'link', 'description']
 
 def collect_task_data(query_logs_json, num_domains, queries_per_domain,
                       num_results, output_file=None, cetera_host=None,
@@ -174,7 +183,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     Do frequency weighted sampling of query logs for domain-specific queries.
     Send those queries as requests to Cetera, collecting n=num_results results
     for each query. For each domain, gather URLs to domain logos. Finally,
-    bundle everything up and write out as a CSV.
+    bundle everything up and write out as a CSV. Use Pandas DataFrame as the
+    primary data structure for storing the log records.
     """
     assert(num_results > 0)
 

@@ -9,6 +9,12 @@ such as normalized discounted cumulative gain (NDCG) and mean average precision
 
 ## Creating a new CrowdFlower job
 
+The CrowdFlower UI is pretty self-explanator. Once we settle on a task design,
+creating new jobs can be done from the UI by clicking on an existing job, and
+electing to copy that job with *gold units* only. As a general rule, the number
+of gold units should probably be greater than or equal to 10% of the total
+number of rows in a job.
+
 ### Collecting data
 
 ### Uploading data

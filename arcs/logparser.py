@@ -106,7 +106,7 @@ def apply_filters(log_record):
         _request_filter(log_record["request"]) and \
         _query_filter(log_record["query"])
 
-if __name__ == "main":
+if __name__ == "__main__":
     from datetime import datetime
     import sys
     import simplejson as json
