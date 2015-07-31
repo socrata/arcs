@@ -119,7 +119,7 @@ if __name__ == "main":
 
     for line in sys.stdin:
         record = parse_log_line(line.strip())
-        if record and apply_filters(record):
+        if record: # and apply_filters(record):
             try:
                 print json.dumps(record, cls=__JSONDateEncoder__)
             except Exception as e:

@@ -1,3 +1,4 @@
+import sys
 import pandas as pd
 from pandas import read_sql
 from frozendict import frozendict
@@ -10,9 +11,12 @@ import os
 import re
 from datetime import datetime
 from logparser import apply_filters
+from langdetect import detect as ldetect
+
 
 def _query_counts_df(df):
     return df["query"].value_counts()
+
 
 def get_top_queries(df):
     """Get the most frequently occurring query terms irrespective of domain."""
@@ -20,6 +24,7 @@ def get_top_queries(df):
     df = df[pd.notnull(df["query"])]
 
     return df["query"].value_counts
+
 
 def get_public_domains(db_conn_str):
     """Determine public domains from metadb."""
@@ -46,6 +51,7 @@ def get_public_domains(db_conn_str):
 
     return domains_df[domains_df["id"].apply(lambda x: x in public_domains)]
 
+
 def sample_domains(df, n=10, min_query_count=10):
     """Get a a weighted (by count) sample of domains."""
 
@@ -58,6 +64,7 @@ def sample_domains(df, n=10, min_query_count=10):
     weights = df["count"] / df["count"].sum()
 
     return {x for x in df.sample(n=min(n, len(df)), weights=weights)["domain"]}
+
 
 def sample_queries_by_domain(df, num_domains, num_queries, min_uniq_terms=10):
     """Get the most frequently occurring query terms grouped by domain."""
@@ -81,7 +88,15 @@ def sample_queries_by_domain(df, num_domains, num_queries, min_uniq_terms=10):
         (d, q) for q in counts.sample(
             n=min(num_queries, len(counts)),
             weights=(counts / counts.sum())).index.tolist()]
-                                     for d, counts in domain_dfs.items()]))
+                                    for d, counts in domain_dfs.items()]))
+
+
+def lang_filter(s):
+    try:
+        return ldetect(s) == 'en'
+    except Exception:
+        return False
+
 
 def get_cetera_results(domain_query_pairs, cetera_host=None, cetera_port=None,
                        num_results=None):
@@ -93,16 +108,18 @@ def get_cetera_results(domain_query_pairs, cetera_host=None, cetera_port=None,
     cetera_port = cetera_port or 5704
     num_results = num_results or 10
 
-    url = "{}:{}/catalog".format(cetera_host, cetera_port)
+    #url = "{}:{}".format(cetera_host, cetera_port)
+    url = cetera_host
     params = frozendict({"limit": num_results})
 
     def _get_result_list(domain, query):
-        return list(enumerate(
-            requests.get(
-                url, params.copy(domains=domain, search=query)
-            ).json()["results"]))
+        print domain, query
+        r = requests.get(url, params=params.copy(domains=domain, q=query))
+        return [res for res in list(enumerate(r.json()["results"]))
+                if lang_filter(res[1]['resource'].get('description'))][:10]
 
     return [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
+
 
 def _transform_cetera_result(result):
     """
@@ -111,7 +128,7 @@ def _transform_cetera_result(result):
     link (ie. URL), the first sentence of description, and the updatedAt
     timestamp.
     """
-    desc = result["resource"].get("description")
+    desc = result["resource"].get("description").replace("\r", "\n")
     desc_sentences = desc.split("\n") if desc else []
     desc = desc_sentences[0] if desc_sentences else desc
 
@@ -121,6 +138,7 @@ def _transform_cetera_result(result):
             result["resource"].get("updatedAt"))
 
 _LOGO_UID_RE = re.compile(r"^[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}$")
+
 
 def get_domain_image(domain):
     """Get the site logo for the specified domain."""
@@ -166,6 +184,7 @@ def get_domain_image(domain):
 
 CSV_COLUMNS = ['domain', 'domain logo url', 'query', 'result position',
                'name', 'link', 'description', 'updatedAt']
+
 
 def collect_task_data(query_logs_json, num_domains, queries_per_domain,
                       num_results, output_file=None, cetera_host=None,
@@ -219,4 +238,13 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
     logging.info("Writing out results as CSV")
 
-    results.to_csv(output_file, encoding="utf-8", index=False)
+    results.to_csv(output_file, encoding="utf-8", index=False, escapechar="\\", na_rep=None)
+
+
+if __name__ == "__main__":
+    collect_task_data(sys.argv[1],
+                      10, 10, 10,
+                      db_conn_str="postgresql://animl:animl@metadba.sea1.socrata.com:5432/blist_prod",
+                      #cetera_host='http://search.cetera.aws-us-west-2-prod.socrata.net',
+                      cetera_host='https://api.us.socrata.com/api/catalog/v1',
+                      cetera_port='80')

@@ -13,7 +13,10 @@ install_requires_list = ['pandas==0.16.2',
                          'pytest==2.6.4',
                          'SQLAlchemy==1.0.6',
                          'frozendict==0.4',
-                         'simplejson==3.7.3']
+                         'simplejson==3.7.3',
+                         'requests==2.7.0',
+                         'psycopg2==2.6.1',
+                         'langdetect==1.0.5']
 
 
 packages_list = [root for root, dirs, files in os.walk('arcs')]
