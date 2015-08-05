@@ -12,6 +12,7 @@ import re
 from datetime import datetime
 from logparser import apply_filters
 from langdetect import detect as ldetect
+from collections import defaultdict
 
 
 def _query_counts_df(df):
@@ -52,7 +53,7 @@ def get_public_domains(db_conn_str):
     return domains_df[domains_df["id"].apply(lambda x: x in public_domains)]
 
 
-def sample_domains(df, n=10, min_query_count=10):
+def sample_domains(df, num_domains=10, min_query_count=10):
     """Get a a weighted (by count) sample of domains."""
 
     domain_counts = df["domain"].value_counts()
@@ -63,14 +64,17 @@ def sample_domains(df, n=10, min_query_count=10):
 
     weights = df["count"] / df["count"].sum()
 
-    return {x for x in df.sample(n=min(n, len(df)), weights=weights)["domain"]}
+    # only grab len(df) domains if we're asking for more than we have
+    return set(df.sample(n=min(num_domains, len(df)), weights=weights)["domain"])
 
 
-def sample_queries_by_domain(df, num_domains, num_queries, min_uniq_terms=10):
-    """Get the most frequently occurring query terms grouped by domain."""
+def sample_queries_by_domain(df, num_domains, queries_per_domain, min_uniq_terms=10):
+    """Get the most frequently occurring query terms grouped by domain.
+    Initially get twice as many domains so that we can ignore the ones that don't fit
+    our other criteria"""
 
     # get a weighted sample of domains
-    domains = sample_domains(df, num_domains, num_queries)
+    domains = sample_domains(df, num_domains*2)
 
     # group by domain, split, and get query counts
     by_domain = df.groupby("domain")
@@ -86,7 +90,7 @@ def sample_queries_by_domain(df, num_domains, num_queries, min_uniq_terms=10):
     # for each domain, sample n queries proportional to query frequency
     return list(chain.from_iterable([[
         (d, q) for q in counts.sample(
-            n=min(num_queries, len(counts)),
+            n=min(queries_per_domain*2, len(counts)),
             weights=(counts / counts.sum())).index.tolist()]
                                     for d, counts in domain_dfs.items()]))
 
@@ -98,27 +102,33 @@ def lang_filter(s):
         return False
 
 
-def get_cetera_results(domain_query_pairs, cetera_host=None, cetera_port=None,
-                       num_results=None):
+def get_cetera_results(domain_query_pairs, cetera_host="http://localhost", cetera_port=None,
+                       num_results=10, queries_per_domain=10):
     """
     Get the top n=num_results catalog search results from Cetera for each
     (domain, query) pair in domain_query_pairs.
     """
-    cetera_host = cetera_host or "http://localhost"
-    cetera_port = cetera_port or 5704
-    num_results = num_results or 10
-
     #url = "{}:{}".format(cetera_host, cetera_port)
     url = cetera_host
-    params = frozendict({"limit": num_results})
+    # multiply by two because we're going to langfilter
+    params = frozendict({"limit": num_results*2})
 
     def _get_result_list(domain, query):
         print domain, query
         r = requests.get(url, params=params.copy(domains=domain, q=query))
         return [res for res in list(enumerate(r.json()["results"]))
-                if lang_filter(res[1]['resource'].get('description'))][:10]
+                if lang_filter(res[1]['resource'].get('description'))][:num_results]
 
-    return [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
+    res = [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
+    # filter for only the (d, q, result_list) tuples that have at least num_results results
+    filtered = [(d, q, rl) for d, q, rl in res if len(rl) >= num_results]
+    # filter for only the domains that have at least queries_per_domain queries
+    # totally gross, but it works
+    dom_counts = defaultdict(set)
+    [dom_counts[d].add(q) for d, q, rl in filtered]
+    dom_counts_limited = {d: list(q)[:queries_per_domain] for d, q in dom_counts.iteritems()}
+    filtered = [(d, q, rl) for d, q, rl in filtered if len(dom_counts_limited[d]) >= queries_per_domain and q in dom_counts_limited[d]]
+    return filtered
 
 
 def _transform_cetera_result(result):
@@ -167,8 +177,8 @@ def get_domain_image(domain):
 
         if not (url.startswith("http") or url.startswith("https")):
             url = "http://{0}{1}".format(domain, url)
-
         return url
+
     except IndexError as e:
         print "Unexpected result shape: zero elements in response JSON"
         print "Response: {}".format(response.content if response else None)
@@ -181,6 +191,7 @@ def get_domain_image(domain):
         print "Failed to fetch configuration for %s" % domain
         print "Response: %s" % response.content if response else None
         print "Exception: %s" % e.message
+
 
 CSV_COLUMNS = ['domain', 'domain logo url', 'query', 'result position',
                'name', 'link', 'description', 'updatedAt']
@@ -195,6 +206,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     for each query. For each domain, gather URLs to domain logos. Finally,
     bundle everything up and write out as a CSV.
     """
+    logging.basicConfig(level=logging.WARNING)
+
     assert(num_results > 0)
 
     output_file = output_file or "{}.csv".format(datetime.now().strftime("%Y%m%d"))
@@ -223,7 +236,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     logging.info("Getting search results from Cetera")
 
     results = get_cetera_results(domain_queries, cetera_host=cetera_host,
-                                 cetera_port=cetera_port, num_results=num_results)
+                                 cetera_port=cetera_port, num_results=num_results,
+                                 queries_per_domain=queries_per_domain)
 
     logging.info("Fetching domain logos")
 
@@ -236,6 +250,9 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
              for d, q, rs in results])),
         columns=CSV_COLUMNS)
 
+    # limit to the first num_domains*queries_per_domain*num_results
+    results = results[:num_domains*queries_per_domain*num_results]
+
     logging.info("Writing out results as CSV")
 
     results.to_csv(output_file, encoding="utf-8", index=False, escapechar="\\", na_rep=None)
@@ -243,7 +260,7 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
 if __name__ == "__main__":
     collect_task_data(sys.argv[1],
-                      10, 10, 10,
+                      40, 5, 5,
                       db_conn_str="postgresql://animl:animl@metadba.sea1.socrata.com:5432/blist_prod",
                       #cetera_host='http://search.cetera.aws-us-west-2-prod.socrata.net',
                       cetera_host='https://api.us.socrata.com/api/catalog/v1',
