@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # .env should have a line like
-# CROWDFLOWER_API_KEY="LbcxvIlE3x1M8F6TT5hN"
+# export CROWDFLOWER_API_KEY="LbcxvIlE3x1M8F6TT5hN"
 # you can find (y)ours at http://make.crowdflower.com/account/user
 source .env
 
