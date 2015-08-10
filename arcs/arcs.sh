@@ -11,7 +11,7 @@
 dirname=`date +%Y%m%d`
 
 echo "Retrieving logs from lb02"
-rsync -avz lb02:/data/nginx-logs/*.gz $dirname
+rsync -avz lb02:/data/nginx-logs/*2.gz $dirname
 
 echo "Parsing logs into json"
 for x in `ls $dirname`; do gzcat $dirname/$x | python logparser.py; done > $dirname.logs.concat.json
