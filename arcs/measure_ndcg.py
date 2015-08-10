@@ -33,6 +33,8 @@ def close_enough(a, b):
 
 
 def test():
+    # TODO: these are asserting that the values are similar to what I got on Aug 10 2015
+    # not any sort of ground truth or anything.
     lst = [3, 2, 3, 1, 2, 0]
     exp = 0.958112357102
     assert close_enough(compute_ndcg(lst), exp), "Uh oh! Expecting {} for {}".format(exp, lst)
