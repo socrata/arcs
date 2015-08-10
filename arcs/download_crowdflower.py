@@ -77,7 +77,7 @@ def main(job_idx):
         print
     # for now throw out the 1-values, we don't have enough data
     # for them to be "real" 1s
-    all_ndcgs = [n for n in all_ndcgs if n < 1.0]
+    #all_ndcgs = [n for n in all_ndcgs if n < 1.0]
     all_ndcg = sum(all_ndcgs)/len(all_ndcgs)
     print "OVERALL NDCG:", all_ndcg
 
