@@ -1,23 +1,21 @@
 from math import log
 
 
-def compute_ndcg(iterable, acceptable_responses=frozenset([0, 1, 2, 3])):
+def _calc_dcg(judgments, indices):
+    return sum([(2**j - 1) / log(i + 2, 2) for (i, j) in zip(indices, judgments)])
+
+
+def compute_ndcg(iterable, acceptable_responses=frozenset([0, 1, 2, 3]), indices=None):
     """
     :param iterable: the iterable full of judgements
     :param acceptable_responses: a set containing all legal values
+    :param indices: the indices of the list, in case we skip a ranking
     """
-    # skip this assert because we're getting averages back
-    # assert set(iterable).difference(acceptable_responses) == set(), "Received unexpected response(s) in set {}".format(str(iterable))
-
-    def _calc_dcg(l):
-        dcg = l[0]
-        for i, n in enumerate(l[1:]):
-            dcg += n/log(i+2, 2)
-        return dcg
-
-    dcg = _calc_dcg(iterable)
+    if not indices:
+        indices = range(len(iterable))
+    dcg = _calc_dcg(iterable, indices)
     ideal_order = sorted(iterable, reverse=True)
-    idcg = _calc_dcg(ideal_order)
+    idcg = _calc_dcg(ideal_order, indices)
     try:
         ndcg = dcg/idcg
     except Exception:
@@ -28,13 +26,22 @@ def compute_ndcg(iterable, acceptable_responses=frozenset([0, 1, 2, 3])):
     return ndcg
 
 
+def close_enough(a, b):
+    if abs(a-b) < .0000001:
+        return True
+    return False
+
+
 def test():
     lst = [3, 2, 3, 1, 2, 0]
-    print compute_ndcg(lst)
+    exp = 0.958112357102
+    assert close_enough(compute_ndcg(lst), exp), "Uh oh! Expecting {} for {}".format(exp, lst)
     lst = [3, 2, 3, 1, 2, 1]
-    print compute_ndcg(lst)
+    exp = 0.959110289196
+    assert close_enough(compute_ndcg(lst), exp), "Uh oh! Expecting {} for {}".format(exp, lst)
     lst2 = [i-1 for i in lst]
-    print compute_ndcg(lst2, set([-1, 0, 2, 1]))
+    exp = 0.947508362289
+    assert close_enough(compute_ndcg(lst2, set([-1, 0, 2, 1])), exp), "Uh oh! Expecting {} for {}".format(exp, lst)
 
 
 if __name__ == "__main__":

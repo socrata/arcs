@@ -7,4 +7,4 @@ source .env
 
 echo "Crowdflower API Key:" $CROWDFLOWER_API_KEY
 
-python download_crowdflower.py 755163
+python download_crowdflower.py -i 755163 -n
