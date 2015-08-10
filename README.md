@@ -17,6 +17,14 @@ number of rows in a job.
 
 ### Collecting data
 
+In order to run collection.py, you must set the `METADB_CONN_STR` environment
+variable, and put the username and password in your .pgpass file (you can find
+those in Lastpass if you search for `metadb`):
+
+```bash
+export METADB_CONN_STR=postgresql://animl:animl@metadba.sea1.socrata.com:5432/blist_prod
+```
+
 ### Uploading data
 
 ## Measuring relevance

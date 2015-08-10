@@ -1,3 +1,5 @@
+import argparse
+import sys
 import pandas as pd
 from pandas import read_sql
 from frozendict import frozendict
@@ -10,9 +12,13 @@ import os
 import re
 from datetime import datetime
 from logparser import apply_filters
+from langdetect import detect as ldetect
+from collections import defaultdict
+
 
 def _query_counts_df(df):
     return df["query"].value_counts()
+
 
 def get_top_queries(df):
     """Get the most frequently occurring query terms irrespective of domain."""
@@ -20,6 +26,7 @@ def get_top_queries(df):
     df = df[pd.notnull(df["query"])]
 
     return df["query"].value_counts
+
 
 def get_public_domains(db_conn_str):
     """
@@ -53,7 +60,8 @@ def get_public_domains(db_conn_str):
 
     return domains_df[domains_df["id"].apply(lambda x: x in public_domains)]
 
-def sample_domains(df, n=10, min_query_count=10):
+
+def sample_domains(df, num_domains=10, min_query_count=10):
     """Get a a weighted (by count) sample of domains."""
 
     domain_counts = df["domain"].value_counts()
@@ -64,13 +72,17 @@ def sample_domains(df, n=10, min_query_count=10):
 
     weights = df["count"] / df["count"].sum()
 
-    return {x for x in df.sample(n=min(n, len(df)), weights=weights)["domain"]}
+    # only grab len(df) domains if we're asking for more than we have
+    return set(df.sample(n=min(num_domains, len(df)), weights=weights)["domain"])
 
-def sample_queries_by_domain(df, num_domains, num_queries, min_uniq_terms=10):
-    """Get the most frequently occurring query terms grouped by domain."""
+
+def sample_queries_by_domain(df, num_domains, queries_per_domain, min_uniq_terms=10):
+    """Get the most frequently occurring query terms grouped by domain.
+    Initially get twice as many domains so that we can ignore the ones that don't fit
+    our other criteria"""
 
     # get a weighted sample of domains
-    domains = sample_domains(df, num_domains, num_queries)
+    domains = sample_domains(df, num_domains*2)
 
     # group by domain, split, and get query counts
     by_domain = df.groupby("domain")
@@ -86,33 +98,49 @@ def sample_queries_by_domain(df, num_domains, num_queries, min_uniq_terms=10):
     # for each domain, sample n queries proportional to query frequency
     return list(chain.from_iterable([[
         (d, q) for q in counts.sample(
-            n=min(num_queries, len(counts)),
+            n=min(queries_per_domain*2, len(counts)),
             weights=(counts / counts.sum())).index.tolist()]
-                                     for d, counts in domain_dfs.items()]))
+                                    for d, counts in domain_dfs.items()]))
 
-def get_cetera_results(domain_query_pairs, cetera_host=None, cetera_port=None,
-                       num_results=None):
+
+def lang_filter(s):
+    try:
+        return ldetect(s) == 'en'
+    except Exception:
+        return False
+
+
+def get_cetera_results(domain_query_pairs, cetera_host="http://localhost", cetera_port=None,
+                       num_results=10, queries_per_domain=10):
     """
     Get the top n=num_results catalog search results from Cetera for each
     (domain, query) pair in domain_query_pairs.
     """
-    cetera_host = cetera_host or "http://localhost"
-    cetera_port = cetera_port or 5704
-    num_results = num_results or 10
-
-    url = "{}:{}/catalog".format(cetera_host, cetera_port)
-    params = frozendict({"limit": num_results})
+    # we can't use the port in this version
+    if 'https://api.us.socrata.com/api/catalog/' in cetera_host:
+        url = cetera_host
+    else:
+        url = "{}:{}".format(cetera_host, cetera_port)
+    # multiply by two because we're going to langfilter
+    params = frozendict({"limit": num_results*2})
 
     def _get_result_list(domain, query):
-        return list(enumerate(
-            requests.get(
-                url, params.copy(domains=domain, q=query)
-            ).json()["results"]))
+        print domain, query
+        r = requests.get(url, params=params.copy(domains=domain, q=query))
+        return [res for res in list(enumerate(r.json().get("results")))
+                if lang_filter(res[1]['resource'].get('description'))][:num_results]
 
-    return [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
+    res = [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
+    # filter for only the (d, q, result_list) tuples that have at least num_results results
+    filtered = [(d, q, rl) for d, q, rl in res if len(rl) >= num_results]
+    # filter for only the domains that have at least queries_per_domain queries
+    # totally gross, but it works
+    dom_counts = defaultdict(set)
+    [dom_counts[d].add(q) for d, q, rl in filtered]
+    dom_counts_limited = {d: list(q)[:queries_per_domain] for d, q in dom_counts.iteritems()}
+    filtered = [(d, q, rl) for d, q, rl in filtered if len(dom_counts_limited[d]) >= queries_per_domain and q in dom_counts_limited[d]]
+    return filtered
 
-_NEWLINE_RE = re.compile(r"[\r\n]+")
-_SENTENCE_BREAK_RE = re.compile(r"[.?!]\s+")
 
 def _transform_cetera_result(result):
     """
@@ -120,16 +148,16 @@ def _transform_cetera_result(result):
     more suitable for the crowdsourcing task. Presently, we're grabbing name,
     link (ie. URL), and the first sentence of description.
     """
-    desc = result["resource"].get("description")
-    desc_sentences = _NEWLINE_RE.split(desc) if desc else []
+    desc = result["resource"].get("description").replace("\r", "\n")
+    desc_sentences = desc.split("\n") if desc else []
     desc = desc_sentences[0] if desc_sentences else desc
-    desc = _SENTENCE_BREAK_RE.split(desc)[0] if desc else desc
 
     return (result["resource"].get("name"),
             result["link"],
             desc)
 
 _LOGO_UID_RE = re.compile(r"^[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}$")
+
 
 def get_domain_image(domain):
     """Get the site logo for the specified domain."""
@@ -158,8 +186,8 @@ def get_domain_image(domain):
 
         if not (url.startswith("http") or url.startswith("https")):
             url = "http://{0}{1}".format(domain, url)
-
         return url
+
     except IndexError as e:
         print "Unexpected result shape: zero elements in response JSON"
         print "Response: {}".format(response.content if response else None)
@@ -173,8 +201,10 @@ def get_domain_image(domain):
         print "Response: %s" % response.content if response else None
         print "Exception: %s" % e.message
 
-CSV_COLUMNS = ['domain', 'domain_logo_url', 'query', 'result_position',
-               'name', 'link', 'description']
+
+CSV_COLUMNS = ['domain', 'domain logo url', 'query', 'result position',
+               'name', 'link', 'description', 'updatedAt']
+
 
 def collect_task_data(query_logs_json, num_domains, queries_per_domain,
                       num_results, output_file=None, cetera_host=None,
@@ -201,6 +231,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
     public_domains = get_public_domains(db_conn_str or
                                         os.environ["METADB_CONN_STR"])
+
+
     public_domains = set(public_domains["domain"])
 
     logging.info("Filtering log data to public domains")
@@ -214,7 +246,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     logging.info("Getting search results from Cetera")
 
     results = get_cetera_results(domain_queries, cetera_host=cetera_host,
-                                 cetera_port=cetera_port, num_results=num_results)
+                                 cetera_port=cetera_port, num_results=num_results,
+                                 queries_per_domain=queries_per_domain)
 
     logging.info("Fetching domain logos")
 
@@ -227,6 +260,49 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
              for d, q, rs in results])),
         columns=CSV_COLUMNS)
 
+    # limit to the first num_domains*queries_per_domain*num_results
+    results = results[:num_domains*queries_per_domain*num_results]
+
     logging.info("Writing out results as CSV")
 
-    results.to_csv(output_file, encoding="utf-8", index=False)
+    results.to_csv(output_file, encoding="utf-8", index=False, escapechar="\\", na_rep=None)
+
+
+def arg_parser():
+    parser = argparse.ArgumentParser(description='Gather domains and queries from parsed nginx logs, \
+    gather the top n results from cetera')
+
+    # TODO: make all the inputs to collect_task_data configurable here!
+    parser.add_argument('-j', '--json_file', dest='query_logs_json', required=True,
+                        help='json file containing the output of logparse.py')
+    parser.add_argument('-d', '--num_domains', dest='num_domains', type=int,
+                        default=40,
+                        help='Number of domains to fetch queries and results for, \
+                        default %(default)s')
+    parser.add_argument('-q', '--num_queries', dest='queries_per_domain', type=int,
+                        default=5,
+                        help='Number of queries per domain to fetch, \
+                        default %(default)s')
+    parser.add_argument('-r', '--num_results', dest='num_results', type=int,
+                        default=40,
+                        help='Number of results per (domain, query) pair to fetch from cetera, \
+                        default %(default)s')
+    parser.add_argument('-c', '--cetera_host', dest='cetera_host',
+                        default='https://api.us.socrata.com/api/catalog/v1',
+                        help='Cetera hostname (eg. localhost) \
+                        default %(default)s')
+    parser.add_argument('-p', '--cetera_port', dest='cetera_port',
+                        default='80',
+                        help='Cetera port, default %(default)s')
+
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.WARNING)
+    args = arg_parser()
+    collect_task_data(args.query_logs_json, args.num_domains,
+                      args.queries_per_domain, args.num_results,
+                      cetera_host=args.cetera_host,
+                      cetera_port=args.cetera_port)
