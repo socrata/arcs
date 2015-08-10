@@ -1,3 +1,4 @@
+import argparse
 import sys
 import pandas as pd
 from pandas import read_sql
@@ -108,15 +109,18 @@ def get_cetera_results(domain_query_pairs, cetera_host="http://localhost", ceter
     Get the top n=num_results catalog search results from Cetera for each
     (domain, query) pair in domain_query_pairs.
     """
-    #url = "{}:{}".format(cetera_host, cetera_port)
-    url = cetera_host
+    # we can't use the port in this version
+    if 'https://api.us.socrata.com/api/catalog/' in cetera_host:
+        url = cetera_host
+    else:
+        url = "{}:{}".format(cetera_host, cetera_port)
     # multiply by two because we're going to langfilter
     params = frozendict({"limit": num_results*2})
 
     def _get_result_list(domain, query):
         print domain, query
         r = requests.get(url, params=params.copy(domains=domain, q=query))
-        return [res for res in list(enumerate(r.json()["results"]))
+        return [res for res in list(enumerate(r.json().get("results")))
                 if lang_filter(res[1]['resource'].get('description'))][:num_results]
 
     res = [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
@@ -223,6 +227,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
     public_domains = get_public_domains(db_conn_str or
                                         os.environ["METADB_CONN_STR"])
+
+
     public_domains = set(public_domains["domain"])
 
     logging.info("Filtering log data to public domains")
@@ -258,10 +264,41 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     results.to_csv(output_file, encoding="utf-8", index=False, escapechar="\\", na_rep=None)
 
 
+def arg_parser():
+    parser = argparse.ArgumentParser(description='Gather domains and queries from parsed nginx logs, \
+    gather the top n results from cetera')
+
+    # TODO: make all the inputs to collect_task_data configurable here!
+    parser.add_argument('-j', '--json_file', dest='query_logs_json', required=True,
+                        help='json file containing the output of logparse.py')
+    parser.add_argument('-d', '--num_domains', dest='num_domains', type=int,
+                        default=40,
+                        help='Number of domains to fetch queries and results for, \
+                        default %(default)s')
+    parser.add_argument('-q', '--num_queries', dest='queries_per_domain', type=int,
+                        default=5,
+                        help='Number of queries per domain to fetch, \
+                        default %(default)s')
+    parser.add_argument('-r', '--num_results', dest='num_results', type=int,
+                        default=40,
+                        help='Number of results per (domain, query) pair to fetch from cetera, \
+                        default %(default)s')
+    parser.add_argument('-c', '--cetera_host', dest='cetera_host',
+                        default='https://api.us.socrata.com/api/catalog/v1',
+                        help='Cetera hostname (eg. localhost) \
+                        default %(default)s')
+    parser.add_argument('-p', '--cetera_port', dest='cetera_port',
+                        default='80',
+                        help='Cetera port, default %(default)s')
+
+    args = parser.parse_args()
+    print "Namespace:", args
+    return args
+
+
 if __name__ == "__main__":
-    collect_task_data(sys.argv[1],
-                      40, 5, 5,
-                      db_conn_str="postgresql://animl:animl@metadba.sea1.socrata.com:5432/blist_prod",
-                      #cetera_host='http://search.cetera.aws-us-west-2-prod.socrata.net',
-                      cetera_host='https://api.us.socrata.com/api/catalog/v1',
-                      cetera_port='80')
+    args = arg_parser()
+    collect_task_data(args.query_logs_json, args.num_domains,
+                      args.queries_per_domain, args.num_results,
+                      cetera_host=args.cetera_host,
+                      cetera_port=args.cetera_port)
