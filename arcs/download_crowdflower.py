@@ -33,19 +33,25 @@ def extract(results):
     domain, query, response (name, description), result_position, judgement"""
     extracted = defaultdict(lambda: defaultdict(list))
     for idx, body in results.iteritems():
+        print idx
+        print body
         domain = body.get('domain')
         query = body.get('query')
         response = (body.get('name'), body.get('description'))
         result_position = body.get('result_position')
         # just use the avg for now
-        judgement = body['relevance'].get('avg')
+        if isinstance(body['relevance'], dict):
+            judgement = body['relevance'].get('avg')
+        elif isinstance(body['relevance'], list):
+            judgements = [float(j) for j in body.get('relevance')]
+            judgement = sum(judgements)/len(judgements)
         extracted[domain][query].append((result_position, response, judgement))
 
     return extracted
 
 
 def main(job_idx):
-    results = get_results(job_idx)
+    results= get_results(job_idx)
     #results = json.load(open('{}.json'.format(job_idx)))
     extracted_results = extract(results)
     all_ndcgs = []
