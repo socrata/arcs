@@ -210,8 +210,6 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     for each query. For each domain, gather URLs to domain logos. Finally,
     bundle everything up and write out as a CSV.
     """
-    logging.basicConfig(level=logging.WARNING)
-
     assert(num_results > 0)
 
     output_file = output_file or "{}.csv".format(datetime.now().strftime("%Y%m%d"))
@@ -292,11 +290,11 @@ def arg_parser():
                         help='Cetera port, default %(default)s')
 
     args = parser.parse_args()
-    print "Namespace:", args
     return args
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.WARNING)
     args = arg_parser()
     collect_task_data(args.query_logs_json, args.num_domains,
                       args.queries_per_domain, args.num_results,
