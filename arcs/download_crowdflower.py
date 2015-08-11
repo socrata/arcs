@@ -3,7 +3,7 @@ import sys
 import os
 import json
 import requests
-from measure_ndcg import compute_ndcg
+from evaluation import ndcg
 from collections import defaultdict
 
 
@@ -51,6 +51,7 @@ def extract(results):
 
 def print_ndcg(extracted_results):
     all_ndcgs = []
+
     for dom, queries in extracted_results.iteritems():
         print dom
         dom_ndcgs = []
@@ -60,32 +61,47 @@ def print_ndcg(extracted_results):
             judgments = [r[-1] for r in results if r[-1] > -1]
             diff = (len(judgments) != len(results))
             if diff:
-                print "removed `data missing/error` judgments:\n{}\n{}".format([r[-1] for r in results], judgments)
+                print "removed `data missing/error` judgments:\n{}\n{}".format(
+                    [r[-1] for r in results], judgments)
+
             if len(judgments) > 1 and sum(judgments) > 0:
                 print "\t", query
                 print "\t", judgments
-                ndcg = compute_ndcg(judgments)
-                if ndcg != None:
-                    print "\t\t", ndcg
-                    all_ndcgs.append(ndcg)
-                    dom_ndcgs.append(ndcg)
+
+                try:
+                    _ndcg = ndcg(judgments)
+                    print "\t\t", _ndcg
+                    all_ndcgs.append(_ndcg)
+                    dom_ndcgs.append(_ndcg)
+
+                except ZeroDivisionError:
+                    print "Error calculating NDCG for query {0} with judgments" \
+                        "{1}".format(query, judgments)
+
         if dom_ndcgs:
             dom_ndcg = sum(dom_ndcgs)/len(dom_ndcgs)
             print "DOMAIN NDCG:", dom_ndcg
+
         print '='*30
         print
+
     # for now throw out the 1-values, we don't have enough data
     # for them to be "real" 1s
-    all_ndcgs_minus_ones = [n for n in all_ndcgs if n < 1.0]
-    diff = (len(all_ndcgs) != len(all_ndcgs_minus_ones))
+    all_ndcgs_lt_ones = [n for n in all_ndcgs if n < 1.0]
+
+    diff = len(all_ndcgs) - len(all_ndcgs_lt_ones)
     if diff:
-        print "removed ndcgs with a score of 1:\n{}\n{}"
-    all_ndcg = sum(all_ndcgs_minus_ones)/len(all_ndcgs_minus_ones)
+        print "removed {} NDCG scores of 1 (insufficient data)".format(diff)
+        print
+
+    all_ndcg = sum(all_ndcgs_lt_ones) / len(all_ndcgs_lt_ones)
+
     print "OVERALL NDCG:", all_ndcg
+    print "OVERALL NDCG ERROR:", 1 - all_ndcg
 
 
 def arg_parser():
-    parser = argparse.ArgumentParser(description='Download data from crowdflower. Optionally report NDCG')
+    parser = argparse.ArgumentParser(description='Download data from CrowdFlower. Optionally report NDCG')
 
     parser.add_argument('-c', '--cache', dest='cache', default=False, action='store_true',
                         help='Whether to read from cache, default %(default)s')
