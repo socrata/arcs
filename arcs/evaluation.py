@@ -11,9 +11,6 @@ def dcg(judgments, indices):
     :param indices: an optional list of result positions for each judgment
     :param judgments: an iterable of numeric relevance judgments
     """
-    # import pdb
-    # pdb.set_trace()
-    
     return sum([(2**j - 1) / log(i + 2, 2) for (i, j) in
                 zip(indices, judgments)])
 
