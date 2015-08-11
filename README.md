@@ -7,6 +7,20 @@ crowdsourcing workers, and from those judgments, to compute relevance metrics
 such as normalized discounted cumulative gain (NDCG) and mean average precision
 (MAP).
 
+## Running tests
+
+From a fresh arcs virtual environment, install pytest:
+
+```bash
+pip install pytest
+```
+
+And then run the tests
+
+```bash
+py.test
+```
+
 ## Creating a new CrowdFlower job
 
 The CrowdFlower UI is pretty self-explanator. Once we settle on a task design,
@@ -29,6 +43,18 @@ export METADB_CONN_STR=postgresql://animl:animl@metadba.sea1.socrata.com:5432/bl
 
 ## Measuring relevance
 
+Once a job has completed, you can download the results and report NDCG by
+running the `download_crowdflower.sh` script. Before doing so, ensure that you
+have a a CrowdFlower API key and that a corresponding environment variable is
+set.
+
+```bash
+export CROWDFLOWER_API_KEY=LbcxvIlE3x1M8F6TT5hN
+python arcs/download_crowdflower.py -n -i 755163
+```
+
+This will report per-domain NDCG as well as overall NDCG.
+       
 ## References
 
 [NDCG](https://en.wikipedia.org/wiki/Discounted_cumulative_gain)

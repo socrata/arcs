@@ -16,11 +16,7 @@ install_requires_list = ['pandas==0.16.2',
                          'simplejson==3.7.3',
                          'requests==2.7.0',
                          'psycopg2==2.6.1',
-                         'langdetect==1.0.5',
-                         'pyopenssl',
-                         'ndg-httpsclient',
-                         'pyasn1',
-                         'crowdflower==0.1.3']
+                         'langdetect==1.0.5']
 
 
 packages_list = [root for root, dirs, files in os.walk('arcs')]
