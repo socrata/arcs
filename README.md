@@ -29,7 +29,7 @@ Use the following command to parse Nginx logs for Catalog queries and to output
 them as JSON. Run this from the arcs directory. TODO: make this happen
 periodically and automatically. Set the dirname variable to the path to a
 directory of gzipped Nginx logs (as downloaded from one of our front-end load
-balancers). 
+balancers).
 
 ```sh
 dirname=~/Data/query_analysis/2015-08-10.logs
@@ -65,8 +65,10 @@ variable, and put the username and password in your .pgpass file (you can find
 those in Lastpass if you search for `metadb`):
 
 ```bash
-export METADB_CONN_STR=postgresql://animl:animl@metadba.sea1.socrata.com:5432/blist_prod
+export METADB_CONN_STR=postgresql://$USERNAME:$USERNAME@$METADB_HOSTNAME:$METADB_PORT/$METADB_TABLENAME
 ```
+
+Replacing `$USERNAME`, `$METADB_HOSTNAME`, `$METADB_PORT` and `$METADB_TABLENAME` appropriately.
 
 ### Uploading data
 
@@ -74,13 +76,14 @@ export METADB_CONN_STR=postgresql://animl:animl@metadba.sea1.socrata.com:5432/bl
 
 Once a job has completed, you can download the results and report NDCG by
 running the `download_crowdflower.sh` script. Before doing so, ensure that you
-have a a CrowdFlower API key and that a corresponding environment variable is
-set. The `755163` in the snippet below is a specific job ID. Replace this with
+have a a CrowdFlower API key (which you can find by logging into CrowdFlower and
+going to https://make.crowdflower.com/account/user) and that a corresponding environment variable is
+set. The `123456` in the snippet below is a specific job ID. Replace this with
 the ID of the recently completed job.
 
 ```bash
 export CROWDFLOWER_API_KEY=LbcxvIlE3x1M8F6TT5hN
-python arcs/download_crowdflower.py -n -i 755163
+python arcs/download_crowdflower.py -n -i 123456
 ```
 
 This will report per-domain NDCG as well as overall NDCG.
@@ -89,10 +92,12 @@ This will report per-domain NDCG as well as overall NDCG.
 
 It's useful to know how much agreement there is between our workers as it gives
 us some signal about the difficulty, interpretability, and subjectivity of our
-task. You can calculate inter-annotator agreement like so:
+task. You can calculate inter-annotator agreement by first downloading non-aggregated data
+from CrowdFlower (Results > Settings > "All answers" in the dropdown before downloading
+the aggregated result) like so:
 
 ```bash
-python arcs/calc_iaa.py -c data/20150806/all.csv --top_n
+python arcs/calc_iaa.py -c file_from_crowdflower.csv --top_n
 ```
 
 This will report
@@ -108,7 +113,7 @@ prevented the workers from assigning a judgment score. You can achieve this with
 the following:
 
 ```bash
-python arcs/error_analysis.py 755163 -o ~/data/20150806.errors.csv
+python arcs/error_analysis.py 755163 -o 20150806.errors.csv
 ```
 
 This will save a CSV to the path specified by the -o parameter. The rows will be

@@ -18,7 +18,8 @@ install_requires_list = ['pandas==0.16.2',
                          'requests==2.7.0',
                          'requests[security]',
                          'psycopg2==2.6.1',
-                         'langdetect==1.0.5']
+                         'langdetect==1.0.5',
+                         'crowdflower=0.1.3']
 
 
 tests_require = ["pytest==2.6.4"]
