@@ -23,6 +23,34 @@ From the Arcs virtual environment created above, do the following:
 python setup.py test
 ```
 
+## Parsing Nginx logs for query data
+
+Use the following command to parse Nginx logs for Catalog queries and to output
+them as JSON. Run this from the arcs directory. TODO: make this happen
+periodically and automatically. Set the dirname variable to the path to a
+directory of gzipped Nginx logs (as downloaded from one of our front-end load
+balancers). 
+
+```sh
+dirname=~/Data/query_analysis/2015-08-10.logs
+for x in `ls $dirname`; do
+    gzcat $dirname/$x | python arcs/logparser.py
+done > 2015-08-10.logs.concat.json
+```
+
+## Collecting query data for fun and profit
+
+You may be interested in sampling domains and queries, simply for the purpose of
+eyballing results or error analysis. You'll need a parsed query log JSON file
+(like the one generated in the previous step). Then you can do the following:
+
+```sh
+python arcs/collect_domain_query_data.py ~/Data/query_analysis/2015-08-10.logs.concat.json
+```
+
+This will write 2-column tab-delimited lines containing (domain, query) pairs to
+STDOUT.
+
 ## Creating a new CrowdFlower job
 
 The CrowdFlower UI is pretty self-explanatory. Creating new jobs can be done
@@ -56,7 +84,22 @@ python arcs/download_crowdflower.py -n -i 755163
 ```
 
 This will report per-domain NDCG as well as overall NDCG.
-       
+
+## Calculating inter-annotator agreement
+
+It's useful to know how much agreement there is between our workers as it gives
+us some signal about the difficulty, interpretability, and subjectivity of our
+task. You can calculate inter-annotator agreement like so:
+
+```bash
+python arcs/calc_iaa.py -c data/20150806/all.csv --top_n
+```
+
+This will report
+[Krippendorf's Alpha](https://en.wikipedia.org/wiki/Krippendorff%27s_alpha),
+which is a statistical measure of agreement among an arbitrary number of
+workers.
+
 ## References
 
 [NDCG](https://en.wikipedia.org/wiki/Discounted_cumulative_gain)
@@ -64,3 +107,5 @@ This will report per-domain NDCG as well as overall NDCG.
 [MAP](https://en.wikipedia.org/wiki/Information_retrieval#Mean_average_precision)
 
 ["Measuring Search Relevance", Hugh Williams](http://hughewilliams.com/2014/10/11/measuring-search-relevance/)
+
+[Krippendorf's Alpha](https://en.wikipedia.org/wiki/Krippendorff%27s_alpha)
