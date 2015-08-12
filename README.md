@@ -2,7 +2,7 @@ Assessing Relevance of Catalog Search (ARCS)
 ============================================
 
 ARCS is a library for Assessing Relevance of our Catalog Search system.
-Specifically, it is intended to help us collect of relevance judgments from
+Specifically, it is intended to help us collect relevance judgments from
 crowdsourcing workers, and from those judgments, to compute relevance metrics
 such as normalized discounted cumulative gain (NDCG) and mean average precision
 (MAP).
@@ -17,16 +17,10 @@ pip install -e .
 
 ## Running tests
 
-From a fresh arcs virtual environment, install pytest:
+From the Arcs virtual environment created above, do the following:
 
 ```bash
-pip install pytest
-```
-
-And then run the tests
-
-```bash
-py.test
+python setup.py test
 ```
 
 ## Creating a new CrowdFlower job
