@@ -136,6 +136,8 @@ if __name__ == "__main__":
 
     lines_read = 0
     recs_of_interest = 0
+    earliest_timestamp = None
+    latest_timestamp = None
 
     start = time.time()
 
@@ -143,18 +145,33 @@ if __name__ == "__main__":
         record = parse_log_line(line.strip())
         lines_read += 1
 
-        if record and apply_filters(record):
-            recs_of_interest += 1
+        if record:
+            earliest_timestamp = min(earliest_timestamp, record["timestamp"]) or \
+                record["timestamp"]
 
-            try:
-                print json.dumps(record, cls=__JSONDateEncoder__)
-            except Exception as e:
-                print >> sys.stderr, "{}".format(e.message)
+            latest_timestamp = max(latest_timestamp, record["timestamp"]) or \
+                record["timestamp"]
+
+            if apply_filters(record):
+                recs_of_interest += 1
+
+                try:
+                    print json.dumps(record, cls=__JSONDateEncoder__)
+                except Exception as e:
+                    print >> sys.stderr, "{}".format(e.message)
 
     total_time = time.time() - start
 
     print >> sys.stderr, "Lines read: {}".format(lines_read)
-    print >> sys.stderr, "Log records of interest: {}".format(recs_of_interest)
+    print >> sys.stderr, "Number of records of interest: {}".format(
+        recs_of_interest)
+
     print >> sys.stderr, "Total time: {} secs.".format(total_time)
     print >> sys.stderr, "Lines per sec: {}".format(
         lines_read / float(total_time))
+
+    print >> sys.stderr, "Earliest datetime found: {}".format(
+        earliest_timestamp.isoformat())
+
+    print >> sys.stderr, "Latest datetime found: {}".format(
+        latest_timestamp.isoformat())
