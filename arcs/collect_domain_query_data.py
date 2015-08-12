@@ -51,5 +51,5 @@ if __name__ == "__main__":
         df, args.num_domains, args.queries_per_domain,
         domain_buffer_factor=None, query_buffer_factor=None)
 
-    for (domain, query) in domain_queries:
-        print "{}\t{}".format(domain, query)
+    for (domain, query, count) in domain_queries:
+        print "{}\t{}\t{}".format(domain, query, count)

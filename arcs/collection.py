@@ -44,9 +44,9 @@ def get_public_domains(db_conn_str):
     domains = set(domains_df["id"])
 
     private = set(read_sql(
-        "SELECT c.domain_id AS id FROM config_vals AS cv, configurations as c " \
-        "WHERE cv.config_id=c.id AND cv.name='staging_api_lockdown' AND " \
-        "c.type='feature_set' AND c.is_default AND c.deleted_at IS NULL AND " \
+        "SELECT c.domain_id AS id FROM config_vals AS cv, configurations as c "
+        "WHERE cv.config_id=c.id AND cv.name='staging_api_lockdown' AND "
+        "c.type='feature_set' AND c.is_default AND c.deleted_at IS NULL AND "
         "cv.deleted_at IS NULL", con=conn)["id"])
 
     lockdown_false = set(read_sql(
@@ -93,7 +93,7 @@ def sample_queries_by_domain(df, num_domains, queries_per_domain,
         domain_buffer_factor: Factor by which to buffer domain sample
         query_buffer_factor: Factor by which to buffer query sample
 
-    Returns: A list of (domain, query) pairs.
+    Returns: A list of (domain, query, count) triples.
     """
     # get a weighted sample of domains
     domain_buffer = domain_buffer_factor or 1
@@ -112,8 +112,9 @@ def sample_queries_by_domain(df, num_domains, queries_per_domain,
 
     # for each domain, sample n queries proportional to query frequency
     query_buffer = query_buffer_factor or 1
+
     return list(chain.from_iterable([[
-        (d, q) for q in counts.sample(
+        (d, q, counts.loc[q]) for q in counts.sample(
             n=min(queries_per_domain * query_buffer, len(counts)),
             weights=(counts / counts.sum())).index.tolist()]
         for d, counts in domain_dfs.items()]))
@@ -193,9 +194,10 @@ def get_domain_image(domain):
         response.raise_for_status()
 
         data = next((x for x in response.json()[0]["properties"]
-                     if x.has_key("name") and x["name"] == "theme_v2b"))
+                     if "name" in x and x["name"] == "theme_v2b"))
 
-        url = data.get("value", {}).get("images", {}).get("logo_header", {}).get("href")
+        url = data.get("value", {}).get("images", {}).get("logo_header", {}) \
+                                                     .get("href")
 
         if url and _LOGO_UID_RE.match(url):
             url = "/api/assets/{0}".format(url)
@@ -259,6 +261,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
     domain_queries = sample_queries_by_domain(
         df, num_domains, queries_per_domain)
+
+    domain_queries = [(domain, count) for (domain, count, _) in domain_queries]
 
     logging.info("Getting search results from Cetera")
 
