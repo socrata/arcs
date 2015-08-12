@@ -40,27 +40,34 @@ COLUMNS = ("host", "user", "timestamp", "request", "status", "size",
 def _convert_type(k, v):
     return TYPE_CONVERTERS.get(k, lambda x: x)(v)
 
+
 def _convert_types(data):
     return {k: _convert_type(k, v) for k, v in data.items()}
 
-_REQUEST_RE = re.compile(r"(?:DELETE|POST|GET|PUT)\s+" \
-                         r"(?P<path>.*?)\s+" \
+
+_REQUEST_RE = re.compile(r"(?:DELETE|POST|GET|PUT)\s+"
+                         r"(?P<path>.*?)\s+"
                          r".*")
+
 
 def parse_path(r):
     """Extract an HTTP request path from a raw Nginx request field."""
     m = _REQUEST_RE.search(r)
     return m.groupdict().get("path") if m else ""
 
+
 # pattern for extracting query terms from request path
 _QUERY_STRING_RE = re.compile("q=(.*?)(?:&|$)")
+
 
 def parse_query(r):
     m = _QUERY_STRING_RE.search(parse_path(r))
     return urllib.unquote_plus(m.group(1)) if m else ""
 
+
 # pattern composed of capturing subpatterns defined above
 _LOG_PARTS_RE = re.compile(r'\s+'.join(_LOG_PARTS) + r'\s*\Z')
+
 
 def parse_log_line(s):
     """Parse a single line from an Apache logfile."""
@@ -70,15 +77,19 @@ def parse_log_line(s):
         record.update({"query": parse_query(record["request"])})
     return record
 
+
 def read_zipped_apache_log_file_as_dict(filename):
     """Read an entire Apache log file into a Pandas DataFrame."""
     with GzipFile(filename) as f:
         return [r for r in (parse_log_line(x) for x in f) if r]
 
+
 def load_query_logs(*query_files):
     """Read multiple Apache log files into a Pandas DataFrame."""
-    return reduce(lambda acc, qf: acc.append(read_zipped_apache_log_file_as_dict(qf)),
-                  query_files, pd.DataFrame(columns=COLUMNS))
+    return reduce(
+        lambda acc, qf: acc.append(read_zipped_apache_log_file_as_dict(qf)),
+        query_files, pd.DataFrame(columns=COLUMNS))
+
 
 def _domain_filter(domain):
     domain_lower = domain.lower()
@@ -86,19 +97,24 @@ def _domain_filter(domain):
                 "demo.socrata.com" in domain_lower or
                 "test-socrata.com" in domain_lower)
 
+
 def _bot_filter(user_agent):
     ua_lower = user_agent.lower()
     return not ("bot" in ua_lower or "spider" in ua_lower or
                 "crawler" in ua_lower or "curl" in ua_lower or
                 "ruby" in ua_lower)
 
+
 def _request_filter(request):
     return "browse" in request and "q=" in request
 
+
 _FXF_RE = re.compile("^[a-z0-9]{4}-[a-z0-9]{4}$")
+
 
 def _query_filter(query):
     return bool(query) and not _FXF_RE.match(query, re.IGNORECASE)
+
 
 def apply_filters(log_record):
     return _domain_filter(log_record["domain"]) and \
@@ -110,6 +126,7 @@ if __name__ == "__main__":
     from datetime import datetime
     import sys
     import simplejson as json
+    import time
 
     class __JSONDateEncoder__(json.JSONEncoder):
         def default(self, obj):
@@ -117,10 +134,44 @@ if __name__ == "__main__":
                 return obj.isoformat()
             return json.JSONEncoder.default(self, obj)
 
+    lines_read = 0
+    recs_of_interest = 0
+    earliest_timestamp = None
+    latest_timestamp = None
+
+    start = time.time()
+
     for line in sys.stdin:
         record = parse_log_line(line.strip())
-        if record: # and apply_filters(record):
-            try:
-                print json.dumps(record, cls=__JSONDateEncoder__)
-            except Exception as e:
-                print >> sys.stderr, "{}".format(e.message)
+        lines_read += 1
+
+        if record:
+            earliest_timestamp = min(earliest_timestamp, record["timestamp"]) or \
+                record["timestamp"]
+
+            latest_timestamp = max(latest_timestamp, record["timestamp"]) or \
+                record["timestamp"]
+
+            if apply_filters(record):
+                recs_of_interest += 1
+
+                try:
+                    print json.dumps(record, cls=__JSONDateEncoder__)
+                except Exception as e:
+                    print >> sys.stderr, "{}".format(e.message)
+
+    total_time = time.time() - start
+
+    print >> sys.stderr, "Lines read: {}".format(lines_read)
+    print >> sys.stderr, "Number of records of interest: {}".format(
+        recs_of_interest)
+
+    print >> sys.stderr, "Total time: {} secs.".format(total_time)
+    print >> sys.stderr, "Lines per sec: {}".format(
+        lines_read / float(total_time))
+
+    print >> sys.stderr, "Earliest datetime found: {}".format(
+        earliest_timestamp.isoformat())
+
+    print >> sys.stderr, "Latest datetime found: {}".format(
+        latest_timestamp.isoformat())
