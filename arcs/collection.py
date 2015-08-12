@@ -1,5 +1,4 @@
 import argparse
-import sys
 import pandas as pd
 from pandas import read_sql
 from frozendict import frozendict
@@ -100,7 +99,7 @@ def sample_queries_by_domain(df, num_domains, queries_per_domain, min_uniq_terms
         (d, q) for q in counts.sample(
             n=min(queries_per_domain*2, len(counts)),
             weights=(counts / counts.sum())).index.tolist()]
-                                    for d, counts in domain_dfs.items()]))
+        for d, counts in domain_dfs.items()]))
 
 
 def lang_filter(s):
