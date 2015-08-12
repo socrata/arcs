@@ -75,13 +75,29 @@ def sample_domains(df, num_domains=10, min_query_count=10):
     return set(df.sample(n=min(num_domains, len(df)), weights=weights)["domain"])
 
 
-def sample_queries_by_domain(df, num_domains, queries_per_domain, min_uniq_terms=10):
-    """Get the most frequently occurring query terms grouped by domain.
-    Initially get twice as many domains so that we can ignore the ones that don't fit
-    our other criteria"""
+def sample_queries_by_domain(df, num_domains, queries_per_domain,
+                             min_uniq_terms=10, domain_buffer_factor=2,
+                             query_buffer_factor=2):
+    """
+    Get the most frequently occurring query terms grouped by domain.
 
+    Initially, get `domain_buffer_factor` as many domains so that we can ignore
+    the ones that don't fit our other criteria.
+
+    Args:
+        df: A Pandas DataFrame of query log records
+        num_domains: The number of domains to sample
+        queries_per_domain: The number of queries to sample per domain
+        min_uniq_terms: The min. number of unique query terms required for
+            a domain to be considered for sampling
+        domain_buffer_factor: Factor by which to buffer domain sample
+        query_buffer_factor: Factor by which to buffer query sample
+
+    Returns: A list of (domain, query) pairs.
+    """
     # get a weighted sample of domains
-    domains = sample_domains(df, num_domains*2)
+    domain_buffer = domain_buffer_factor or 1
+    domains = sample_domains(df, num_domains * domain_buffer)
 
     # group by domain, split, and get query counts
     by_domain = df.groupby("domain")
@@ -95,9 +111,10 @@ def sample_queries_by_domain(df, num_domains, queries_per_domain, min_uniq_terms
                   if len(counts) >= min_uniq_terms}
 
     # for each domain, sample n queries proportional to query frequency
+    query_buffer = query_buffer_factor or 1
     return list(chain.from_iterable([[
         (d, q) for q in counts.sample(
-            n=min(queries_per_domain*2, len(counts)),
+            n=min(queries_per_domain * query_buffer, len(counts)),
             weights=(counts / counts.sum())).index.tolist()]
         for d, counts in domain_dfs.items()]))
 
@@ -217,7 +234,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     """
     assert(num_results > 0)
 
-    output_file = output_file or "{}.csv".format(datetime.now().strftime("%Y%m%d"))
+    output_file = output_file or \
+        "{}.csv".format(datetime.now().strftime("%Y%m%d"))
 
     logging.info("Reading query logs from {}".format(query_logs_json))
 
@@ -231,7 +249,6 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     public_domains = get_public_domains(db_conn_str or
                                         os.environ["METADB_CONN_STR"])
 
-
     public_domains = set(public_domains["domain"])
 
     logging.info("Filtering log data to public domains")
@@ -240,12 +257,14 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
     logging.info("Sampling queries by domain")
 
-    domain_queries = sample_queries_by_domain(df, num_domains, queries_per_domain)
+    domain_queries = sample_queries_by_domain(
+        df, num_domains, queries_per_domain)
 
     logging.info("Getting search results from Cetera")
 
     results = get_cetera_results(domain_queries, cetera_host=cetera_host,
-                                 cetera_port=cetera_port, num_results=num_results,
+                                 cetera_port=cetera_port,
+                                 num_results=num_results,
                                  queries_per_domain=queries_per_domain)
 
     logging.info("Fetching domain logos")
@@ -254,9 +273,9 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
     logos = {domain: get_domain_image(domain) for domain in domains}
 
     results = pd.DataFrame(
-        list(chain.from_iterable(
-            [[(d, logos.get(d), q, r[0]) + _transform_cetera_result(r[1]) for r in rs]
-             for d, q, rs in results])),
+        list(chain.from_iterable([[
+            (d, logos.get(d), q, r[0]) + _transform_cetera_result(r[1])
+            for r in rs] for d, q, rs in results])),
         columns=CSV_COLUMNS)
 
     # limit to the first num_domains*queries_per_domain*num_results
@@ -264,7 +283,8 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
     logging.info("Writing out results as CSV")
 
-    results.to_csv(output_file, encoding="utf-8", index=False, escapechar="\\", na_rep=None)
+    results.to_csv(output_file, encoding="utf-8",
+                   index=False, escapechar="\\", na_rep=None)
 
 
 def arg_parser():
