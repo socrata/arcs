@@ -16,6 +16,7 @@ install_requires_list = ['pandas==0.16.2',
                          'frozendict==0.4',
                          'simplejson==3.7.3',
                          'requests==2.7.0',
+                         'requests[security]',
                          'psycopg2==2.6.1',
                          'langdetect==1.0.5']
 
