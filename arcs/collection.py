@@ -50,9 +50,9 @@ def get_public_domains(db_conn_str):
         "cv.deleted_at IS NULL", con=conn)["id"])
 
     lockdown_false = set(read_sql(
-        "SELECT c.domain_id AS id FROM config_vals AS cv, configurations as c " \
-        "WHERE cv.config_id=c.id AND cv.name='staging_api_lockdown' AND " \
-        "c.type='feature_set' AND c.is_default AND c.deleted_at IS NULL AND " \
+        "SELECT c.domain_id AS id FROM config_vals AS cv, configurations as c "
+        "WHERE cv.config_id=c.id AND cv.name='staging_api_lockdown' AND "
+        "c.type='feature_set' AND c.is_default AND c.deleted_at IS NULL AND "
         "cv.deleted_at IS NULL AND cv.value='false'", con=conn)["id"])
 
     public_domains = domains.difference(private).union(lockdown_false)
@@ -127,17 +127,27 @@ def lang_filter(s):
         return False
 
 
-def get_cetera_results(domain_query_pairs, cetera_host="http://localhost", cetera_port=None,
+def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
                        num_results=10, queries_per_domain=10):
     """
     Get the top n=num_results catalog search results from Cetera for each
     (domain, query) pair in domain_query_pairs.
+
+    Args:
+        domain_query_pairs:
+        cetera_host: A string corresponding to the Cetera hostname.
+        cetera_port: A port number on which to make requests to Cetera.
+        num_results: The number of results to fetch for each query.
+        queries_per_domain: The number of queries to submit for each domain.
+
+    Returns: A list of (domain, query, result dict) triples.
     """
     # we can't use the port in this version
-    if 'https://api.us.socrata.com/api/catalog/' in cetera_host:
+    if 'https://api.us.socrata.com/api/catalog' in cetera_host:
         url = cetera_host
     else:
         url = "{}:{}".format(cetera_host, cetera_port)
+
     # multiply by two because we're going to langfilter
     params = frozendict({"limit": num_results*2})
 
@@ -148,14 +158,24 @@ def get_cetera_results(domain_query_pairs, cetera_host="http://localhost", ceter
                 if lang_filter(res[1]['resource'].get('description'))][:num_results]
 
     res = [(d, q, _get_result_list(d, q)) for d, q in domain_query_pairs]
-    # filter for only the (d, q, result_list) tuples that have at least num_results results
+
+    # filter for only the (d, q, result_list) tuples that have at least
+    # num_results results
     filtered = [(d, q, rl) for d, q, rl in res if len(rl) >= num_results]
+
     # filter for only the domains that have at least queries_per_domain queries
     # totally gross, but it works
     dom_counts = defaultdict(set)
-    [dom_counts[d].add(q) for d, q, rl in filtered]
-    dom_counts_limited = {d: list(q)[:queries_per_domain] for d, q in dom_counts.iteritems()}
-    filtered = [(d, q, rl) for d, q, rl in filtered if len(dom_counts_limited[d]) >= queries_per_domain and q in dom_counts_limited[d]]
+    for d, q, _ in filtered:
+        dom_counts[d].add(q)
+
+    dom_counts_limited = {d: list(q)[:queries_per_domain] for d, q in
+                          dom_counts.iteritems()}
+
+    filtered = [(d, q, rl) for d, q, rl in filtered
+                if len(dom_counts_limited[d]) >= queries_per_domain and
+                q in dom_counts_limited[d]]
+
     return filtered
 
 
@@ -221,7 +241,7 @@ def get_domain_image(domain):
 
 
 CSV_COLUMNS = ['domain', 'domain logo url', 'query', 'result position',
-               'name', 'link', 'description', 'updatedAt']
+               'name', 'link', 'description']
 
 
 def collect_task_data(query_logs_json, num_domains, queries_per_domain,
@@ -292,8 +312,9 @@ def collect_task_data(query_logs_json, num_domains, queries_per_domain,
 
 
 def arg_parser():
-    parser = argparse.ArgumentParser(description='Gather domains and queries from parsed nginx logs, \
-    gather the top n results from cetera')
+    parser = argparse.ArgumentParser(
+        description='Gather domains and queries from parsed nginx logs, '
+        'gather the top n results from cetera')
 
     # TODO: make all the inputs to collect_task_data configurable here!
     parser.add_argument('-j', '--json_file', dest='query_logs_json', required=True,
