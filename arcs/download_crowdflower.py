@@ -6,8 +6,16 @@ from evaluation import ndcg
 from collections import defaultdict
 
 
-def get_results(job_idx):
-    """grab the results from crowdflower, optionally dump them as JSON"""
+def get_judgments(job_idx):
+    """
+    Download the raw judgments from CrowdFlower
+
+    Args:
+        job_ids: A unique identifier for the CrowdFlower job.
+
+    Returns: A dictionary of raw judgment data from the CrowdFlower API, where
+        each key is an ID for a unit of work (a row).
+    """
     api_key = os.environ['CROWDFLOWER_API_KEY']
     url = "https://api.crowdflower.com/v1/jobs/{job_id}/judgments.json?key={api_key}&page={page}"
     response = True
@@ -117,7 +125,7 @@ def main(job_idx, cache, ndcg):
     if cache:
         results = json.load(open('{}.json'.format(job_idx)))
     else:
-        results = get_results(job_idx)
+        results = get_judgments(job_idx)
     if ndcg:
         extracted_results = extract(results)
         print_ndcg(extracted_results)

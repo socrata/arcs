@@ -100,6 +100,20 @@ This will report
 which is a statistical measure of agreement among an arbitrary number of
 workers.
 
+## Error analysis
+
+After getting judged data back from CrowdFlower, it's a good idea to inspect the
+the rows where the results were obviously bad, or where something went wrong and
+prevented the workers from assigning a judgment score. You can achieve this with
+the following:
+
+```bash
+python arcs/error_analysis.py 755163 -o ~/data/20150806.errors.csv
+```
+
+This will save a CSV to the path specified by the -o parameter. The rows will be
+sorted by the number of bad judgments.
+
 ## References
 
 [NDCG](https://en.wikipedia.org/wiki/Discounted_cumulative_gain)
