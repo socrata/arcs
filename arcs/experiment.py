@@ -17,7 +17,8 @@ class Group(namedtuple("Group", ["name", "data"])):
                 data should be written. If None (the default), the data is
                 saved to a file called {self.name}.csv in the current directory.
         """
-        self.data.to_csv("{}.csv".format(self.name), encoding="utf-8", index=False)
+        filename = filename or "{}.csv".format(self.name)
+        self.data.to_csv(filename, encoding="utf-8", index=False)
 
     @staticmethod
     def from_csv(filename, name=None):
