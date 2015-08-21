@@ -32,6 +32,9 @@ if __name__ == "__main__":
                         help='Number of queries per domain to fetch, '
                         'default %(default)s')
 
+    parser.add_argument('-D', '--domain', dest='domains', action='append',
+                        help='List of domains to sample from')
+
     args = parser.parse_args()
 
     logging.info("Reading query logs from {}".format(args.query_logs_json))
@@ -49,7 +52,8 @@ if __name__ == "__main__":
 
     domain_queries = sample_queries_by_domain(
         df, args.num_domains, args.queries_per_domain,
-        domain_buffer_factor=None, query_buffer_factor=None)
+        domains=args.domains, domain_buffer_factor=None,
+        query_buffer_factor=None)
 
     for (domain, query, count) in domain_queries:
         print "{}\t{}\t{}".format(domain, query, count)

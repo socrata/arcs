@@ -146,11 +146,12 @@ if __name__ == "__main__":
         lines_read += 1
 
         if record:
-            earliest_timestamp = min(earliest_timestamp, record["timestamp"]) or \
-                record["timestamp"]
+            if record["timestamp"]:
+                earliest_timestamp = record["timestamp"] if not earliest_timestamp \
+                    else min(earliest_timestamp, record["timestamp"])
 
-            latest_timestamp = max(latest_timestamp, record["timestamp"]) or \
-                record["timestamp"]
+                latest_timestamp = record["timestamp"] if not latest_timestamp \
+                    else max(latest_timestamp, record["timestamp"])
 
             if apply_filters(record):
                 recs_of_interest += 1

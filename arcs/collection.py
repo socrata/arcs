@@ -77,7 +77,7 @@ def sample_domains(df, num_domains=10, min_query_count=10):
 
 def sample_queries_by_domain(df, num_domains, queries_per_domain,
                              min_uniq_terms=10, domain_buffer_factor=2,
-                             query_buffer_factor=2):
+                             query_buffer_factor=2, domains=None):
     """
     Get the most frequently occurring query terms grouped by domain.
 
@@ -97,7 +97,7 @@ def sample_queries_by_domain(df, num_domains, queries_per_domain,
     """
     # get a weighted sample of domains
     domain_buffer = domain_buffer_factor or 1
-    domains = sample_domains(df, num_domains * domain_buffer)
+    domains = domains or sample_domains(df, num_domains * domain_buffer)
 
     # group by domain, split, and get query counts
     by_domain = df.groupby("domain")
@@ -179,15 +179,19 @@ def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
     return filtered
 
 
+def cleanup_description(desc):
+    desc = desc.replace("\r", "\n") if desc else desc
+    desc_sentences = desc.split("\n") if desc else []
+    return desc_sentences[0] if desc_sentences else desc
+
+
 def _transform_cetera_result(result):
     """
     Utility function for transforming Cetera result dictionary into something
     more suitable for the crowdsourcing task. Presently, we're grabbing name,
     link (ie. URL), and the first sentence of description.
     """
-    desc = result["resource"].get("description").replace("\r", "\n")
-    desc_sentences = desc.split("\n") if desc else []
-    desc = desc_sentences[0] if desc_sentences else desc
+    desc = _cleanup_description(result["resource"].get("description"))
 
     return (result["resource"].get("name"),
             result["link"],

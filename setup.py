@@ -15,11 +15,11 @@ install_requires_list = ['pandas==0.16.2',
                          'SQLAlchemy==1.0.6',
                          'frozendict==0.4',
                          'simplejson==3.7.3',
-                         'requests==2.7.0',
-                         'requests[security]',
+                         'requests[security]==2.7.0',
                          'psycopg2==2.6.1',
                          'langdetect==1.0.5',
-                         'crowdflower=0.1.3']
+                         'crowdflower==0.1.3',
+                         'scipy==0.16.0']
 
 
 tests_require = ["pytest==2.6.4"]
