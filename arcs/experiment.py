@@ -80,7 +80,7 @@ class Group(namedtuple("Group", ["name", "data"])):
         dcgs_df = self.per_query_dcg(judged_group_df)
 
         return {
-            "dcgs": list(dcgs_df),
+            "dcgs": list(dcgs_df["dcg"]),
             "avg_dcg": dcgs_df["dcg"].mean(),
             "num_irrelevant": len(judged_group_df[judged_group_df["judgment"] == 0]),
             "oddballs": list(dcgs_df[dcgs_df["dcg"] == 0]["query"]),
