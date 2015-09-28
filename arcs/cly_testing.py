@@ -167,7 +167,7 @@ if __name__ == "__main__":
         "baseline",
         gather_results(domain_query, args.results_per_query, "baseline"))
 
-    baseline_grp.write_to_csv(baseline_grp)
+    baseline_grp.write_to_csv()
 
     raw_input("Waiting to refetch results for system to be updated... Press enter when ready.")
 
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         args.experimental_group_name,
         gather_results(domain_query, args.results_per_query, args.experimental_group_name))
 
-    grp1.write_to_csv(grp1)
+    grp1.write_to_csv()
 
     # define an experiment
     experiment = Experiment(baseline_grp, grp1)

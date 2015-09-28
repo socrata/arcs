@@ -37,6 +37,7 @@ COLUMNS = ("host", "user", "timestamp", "request", "status", "size",
            "referrer", "user_agent", "request_size", "request_duration",
            "domain", "app_token", "d", "query")
 
+
 def _convert_type(k, v):
     return TYPE_CONVERTERS.get(k, lambda x: x)(v)
 

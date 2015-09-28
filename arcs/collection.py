@@ -24,7 +24,7 @@ def get_top_queries(df):
 
     df = df[pd.notnull(df["query"])]
 
-    return df["query"].value_counts
+    return df["query"].value_counts()
 
 
 def get_public_domains(db_conn_str):
@@ -191,7 +191,7 @@ def _transform_cetera_result(result):
     more suitable for the crowdsourcing task. Presently, we're grabbing name,
     link (ie. URL), and the first sentence of description.
     """
-    desc = _cleanup_description(result["resource"].get("description"))
+    desc = cleanup_description(result["resource"].get("description"))
 
     return (result["resource"].get("name"),
             result["link"],
