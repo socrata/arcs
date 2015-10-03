@@ -12,7 +12,6 @@ def read(fname):
 install_requires_list = ['pandas==0.16.2',
                          'matplotlib==1.4.3',
                          'numpy==1.9.1',
-                         'SQLAlchemy==1.0.6',
                          'frozendict==0.4',
                          'simplejson==3.7.3',
                          'requests[security]==2.7.0',

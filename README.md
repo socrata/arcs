@@ -41,15 +41,33 @@ done > 2015-08-10.logs.concat.json
 ## Collecting query data for fun and profit
 
 You may be interested in sampling domains and queries, simply for the purpose of
-eyballing results or error analysis. You'll need a parsed query log JSON file
+eyballing results, error analysis, or for serving as the basis for a new
+CrowdFlower catalog relevance task. You'll need a parsed query log JSON file
 (like the one generated in the previous step). Then you can do the following:
 
 ```sh
 python arcs/collect_domain_query_data.py ~/Data/query_analysis/2015-08-10.logs.concat.json
 ```
 
-This will write 2-column tab-delimited lines containing (domain, query) pairs to
-STDOUT.
+This will write 3-column tab-delimited lines containing (domain, query, count)
+pairs to STDOUT.
+
+Not surprisingly, there is noise in the query logs. To ensure that we don't send
+garbage queries to crowdsourcing workers for annotation, the
+`collect_domain_query_data` script uses both a hand-curated blacklist and
+filtering regex patterns to eliminate garbage queries. You may find you want to
+add additional patterns or blacklist elements, which you acn do easily
+enough. The query blacklist is in the `data` directory. Additionally, it may be
+useful to supply custom filters for particular tasks. For example, if you want
+to launch a CrowdFlower task to collect judgments limited to only multi-term
+queries, you can supply custom filters like so:
+
+```sh
+python arcs/collect_domain_query_data.py ~/Data/query_analysis/20150924.logs.concat.json -D 'postgresql://username:@hostname:5432/db_name' -d 10 -q 5 -B data/query_blacklist.txt --query_filter='lambda s: " " in s.strip()' > ~/Data/arcs/20151006.slop/queries.tsv
+```
+
+Here we specify an additional filter which will restrict our queries to those
+containing a whitespace character that is non-initial and non-terminal.
 
 ## Creating a new CrowdFlower job
 
@@ -58,32 +76,59 @@ from the UI by clicking on an existing job, and electing to copy that job with
 *gold units* only. As a general rule, the number of gold units should probably
 be greater than or equal to 10% of the total number of rows in a job.
 
-### Collecting data
-
-In order to run collection.py, you must set the `METADB_CONN_STR` environment
-variable, and put the username and password in your .pgpass file (you can find
-those in Lastpass if you search for `metadb`):
+Any programmatic interaction with the CrowdFlower API reqiures that an
+CrowdFlower API token be present in your shell environment. You can obtain such
+a token by logging into CrowdFlower and going to
+https://make.crowdflower.com/account/user). Set the CrowdFlower environment
+variable like so:
 
 ```bash
-export METADB_CONN_STR=postgresql://$USERNAME:$USERNAME@$METADB_HOSTNAME:$METADB_PORT/$METADB_TABLENAME
+export CROWDFLOWER_API_KEY=123456789abcdefghijk       
 ```
 
-Replacing `$USERNAME`, `$METADB_HOSTNAME`, `$METADB_PORT` and `$METADB_TABLENAME` appropriately.
+Add this to your environment resource or profile file to ensure that it is set
+on login.
 
-### Uploading data
+Note that the token included above is fake.
+
+To simplify job creation and data bookeeping, we've added a script (launch_job),
+which that will do the following:
+
+1. collect results for all queries from an input query file from Cetera
+2. store raw results data as a CSV for posterity / inspection
+3. extract relevant result fields from each query-result pair to creat3
+   CrowdFlower task
+4. launch CrowdFlower task copying existing test units from existing job
+5. persist job data in a postgres DB
+
+The script can be run like so:
+
+```sh
+python arcs/launch_job.py -i ~/Data/arcs/20151006.slop/queries.tsv -g '{"name": "baseline", "description": "Current production system as of 10/6/2015", "params": {}}' -g '{"name": "Enabling slop=5", "description": "Testing the effect of slop=5 on multi-term queries", "params": {"slop": 5}}' -r 10 -c localhost -p 5704 -D 'postgresql://username:@hostname:5432/db_name' -F ~/Data/arcs/20151006.slop/full.csv -C ~/Data/arcs/20151006.slop/crowdflower.csv
+```
+
+We specify the required input file of queries w/ the `-i` flag, the parameters
+of each Group of results with the `-g` flag, the number of the results with the
+`-r` flag, the Cetera host and port with the `-c` and `-p` flags, our database
+connection string w/ the `-D` flag, and finally, an optional path to where the
+full and CrowdFlower CSVs should be written.
+
+Once a job has been completed -- and you should receive an email notification to
+this effect from CrowdFlower -- you can download the judgment data like so:
+
+```sh
+python arcs/fetch_job_results.py -j 786401 -D 'postgresql://rlvoyer:@localhost:5432/animl_crate'
+```
+
+The external (CrowdFlower) job ID must be specified (`-j`/`--job_id`). As with
+the launch script above, a DB connection string must be supplied
+(`-D`/`--db_conn_str`).
 
 ## Measuring relevance
 
-Once a job has completed, you can download the results and report NDCG by
-running the `download_crowdflower.sh` script. Before doing so, ensure that you
-have a a CrowdFlower API key (which you can find by logging into CrowdFlower and
-going to https://make.crowdflower.com/account/user) and that a corresponding environment variable is
-set. The `123456` in the snippet below is a specific job ID. Replace this with
-the ID of the recently completed job.
+Once a job has completed and you've downloaded the data, you can download the results and report various statistics (including our core relevance metric, NDCG) by running the `TODO` script.
 
 ```bash
-export CROWDFLOWER_API_KEY=LbcxvIlE3x1M8F6TT5hN
-python arcs/download_crowdflower.py -n -i 123456
 ```
 
 This will report per-domain NDCG as well as overall NDCG.
