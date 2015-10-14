@@ -16,6 +16,17 @@ class NoSuchJob(Exception):
         return NoSuchJob("No job found with external ID {} in DB".format(id))
 
 
+class NoSuchGroup(Exception):
+    """
+    Exception raised when specified Group is not found in DB.
+    """
+    def __init__(self, msg):
+        self.msg = msg
+
+    @staticmethod
+    def with_id(group_id):
+        return NoSuchGroup("No group found with ID {} in DB".format(group_id))
+
 def find_judged_qrps(db_conn):
     """
     Find all the previously judged query-result pairs in the Arcs DB.
@@ -297,3 +308,15 @@ def group_queries_and_judgments_query(db_conn, group_id, group_type):
         query = cur.mogrify(query, (group_id, group_id))
 
     return query
+
+
+def group_name(db_conn, group_id):
+    query = "SELECT name FROM arcs_group WHERE id=%s"
+
+    with db_conn.cursor() as cur:
+        cur.execute(query, (group_id,))
+        result = cur.fetchone()
+        if result:
+            return result[0]
+        else:
+            raise NoSuchGroup.with_id(group_id)

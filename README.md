@@ -74,7 +74,9 @@ containing a whitespace character that is non-initial and non-terminal.
 The CrowdFlower UI is pretty self-explanatory. Creating new jobs can be done
 from the UI by clicking on an existing job, and electing to copy that job with
 *gold units* only. As a general rule, the number of gold units should probably
-be greater than or equal to 10% of the total number of rows in a job.
+be greater than or equal to 10% of the total number of rows in a
+job. Additionally, it's a good idea to add to this set regularly to ensure that
+workers are not being exposed to the same questions over and over again.
 
 Any programmatic interaction with the CrowdFlower API reqiures that an
 CrowdFlower API token be present in your shell environment. You can obtain such
@@ -111,7 +113,12 @@ We specify the required input file of queries w/ the `-i` flag, the parameters
 of each Group of results with the `-g` flag, the number of the results with the
 `-r` flag, the Cetera host and port with the `-c` and `-p` flags, our database
 connection string w/ the `-D` flag, and finally, an optional path to where the
-full and CrowdFlower CSVs should be written.
+full and CrowdFlower CSVs should be written. If no groups are specified, the
+default behavior is to create a group named "baseline" with an empty parameters
+dict (which is used for each query to Cetera).
+
+You may optionally specify a `--job_to_copy` (`-j`) parameter. This indicates
+the CrowdFlower job that should be used as the basis for the task.
 
 Once a job has been completed -- and you should receive an email notification to
 this effect from CrowdFlower -- you can download the judgment data like so:
@@ -126,9 +133,12 @@ the launch script above, a DB connection string must be supplied
 
 ## Measuring relevance
 
-Once a job has completed and you've downloaded the data, you can download the results and report various statistics (including our core relevance metric, NDCG) by running the `TODO` script.
+Once a job has completed and you've downloaded the data, you can download the
+results and report various statistics (including our core relevance metric,
+NDCG) by running the `summarize_results` script.
 
-```bash
+```sh
+
 ```
 
 This will report per-domain NDCG as well as overall NDCG.

@@ -48,7 +48,7 @@ def create_job_from_copy(api_key=None, job_id=None):
     Returns:
         A new Arcs Job
     """
-    job_id = job_id or 784880
+    job_id = job_id or 788107
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
     url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(job_id, api_key)
     r = requests.get(url, headers=headers)
@@ -57,8 +57,16 @@ def create_job_from_copy(api_key=None, job_id=None):
 
 
 def add_data_to_job(job_id, csv_file, api_key=None):
+    """
+    Upload a CSV file as the data for a job.
+
+    Args:
+        job_id (int): The unique job identifier for the job
+        csv_file (str): The full path to CSV file to upload
+        api_key (str): API token (use "CROWDFLOWER_API_KEY" env variable if not specified)
+    """
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
-    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json?key={}".format(job_id, api_key)
+    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json?key={}&force=true".format(job_id, api_key)
     with open(csv_file) as f:
         r = requests.put(url, data=f, headers=headers.copy(**{"content-type": "text/csv"}))
     r.raise_for_status()

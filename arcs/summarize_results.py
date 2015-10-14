@@ -2,7 +2,7 @@ import pandas as pd
 import psycopg2
 import simplejson
 from evaluation import dcg, ndcg
-from db import group_queries_and_judgments_query, query_ideals_query
+from db import group_queries_and_judgments_query, query_ideals_query, group_name
 
 
 def _count_num_diff(group1_df, group2_df):
@@ -65,6 +65,9 @@ def group_ndcgs(judged_data, ideals, ndcg_at):
     # filter out un-judged queries
     judged_group_df = judged_data[judged_data["judgment"].notnull()]
 
+    # filter out QRPs with "something went wrong" judgments
+    judged_group_df = judged_data[judged_data["judgment"] >= 0]
+
     # group results by query and domain
     grouped = judged_data.groupby(["query", "domain"])
 
@@ -76,6 +79,10 @@ def group_ndcgs(judged_data, ideals, ndcg_at):
     ndcgs_df = per_query_ndcg(judged_group_df, ideals, ndcg_at)
 
     return ndcgs_df
+
+
+def num_queries(judged_data):
+    return len(judged_data.groupby(["query", "domain"]))
 
 
 def stats(judged_data, ideals, ndcg_at=5):
@@ -99,9 +106,6 @@ def stats(judged_data, ideals, ndcg_at=5):
     Returns:
         A dict of group summary statistics
     """
-    # count the number of queries
-    num_queries = len(judged_data)
-
     # count the number of queries w/o judgments
     num_unjudged = len(judged_data[judged_data["judgment"].isnull()])
 
@@ -116,12 +120,12 @@ def stats(judged_data, ideals, ndcg_at=5):
     mean_ndcg = ndcgs_df["ndcg"].mean()
 
     return {
-        "num_queries": num_queries,
+        "num_queries": num_queries(judged_data),
         "unjudged_qrps": num_unjudged,
         "avg_ndcg": mean_ndcg,
         "ndcg_error": 1 - mean_ndcg,
         "num_zero_result_queries": len(zero_result_queries),
-        "zero_result_queries": list(zero_result_queries["query"]),
+        "zero_result_queries": [list(x) for x in zero_result_queries[["domain", "query"]].to_records(index=False)],
         "num_irrelevant": len(oddballs),
     }
 
@@ -139,19 +143,24 @@ def main(db_conn_str, group_1_id, group_2_id, ndcg_at):
     ideals_df = pd.read_sql(query_ideals_query(), db_conn)
     group_data = []
 
+    groups = [group_1_id, group_2_id]
+    groups = [(group_id, group_name(db_conn, group_id)) for group_id in groups]
+
     for group_id in [group_1_id, group_2_id]:
         data_df = pd.read_sql(
             group_queries_and_judgments_query(db_conn, group_id, "domain_catalog"),
             db_conn)
 
+        name = group_name(db_conn, group_id)
+
         group_data.append(data_df)
-        experiment_stats.update({group_id: stats(data_df, ideals_df, ndcg_at)})
+        experiment_stats.update({name: stats(data_df, ideals_df, ndcg_at)})
 
     total_differences, unique_qrps = _count_num_diff(group_data[0], group_data[1])
     experiment_stats["num_total_diffs"] = total_differences
     experiment_stats["num_unique_qrps"] = unique_qrps
-    experiment_stats["ndcg_delta"] = (experiment_stats[group_2_id]["avg_ndcg"] -
-                                      experiment_stats[group_1_id]["avg_ndcg"])
+    experiment_stats["ndcg_delta"] = (experiment_stats[groups[1][1]]["avg_ndcg"] -
+                                      experiment_stats[groups[0][1]]["avg_ndcg"])
 
     print simplejson.dumps(experiment_stats, indent=4 * ' ')
 
@@ -162,17 +171,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Report summary statistics on groups from relevance experiment')
 
-    parser.add_argument('qroup_1_id',
+    parser.add_argument('group_1_id', type=int,
                         help='Identifier for baseline group')
 
-    parser.add_argument('qroup_2_id',
+    parser.add_argument('group_2_id', type=int,
                         help='Identifier for experimental group')
 
     parser.add_argument('-D', '--db_conn_str', required=True,
                         help='Database connection string')
 
-    parser.add_argument('-N', '--ndcg_at', type=int, default=5)
+    parser.add_argument('-N', '--ndcg_at', type=int, default=5, required=False,
+                        help='The position up to which to compute NDCG')
 
     args = parser.parse_args()
 
-    main(args.db_conn_str, args.group_1_id, args.group_2_id, args.ncdg_at)
+    main(args.db_conn_str, args.group_1_id, args.group_2_id, args.ndcg_at)
