@@ -88,7 +88,7 @@ def _transform_cetera_result(result, result_position, logos):
             "result_fxf": result["resource"].get("id"),
             "name": result["resource"].get("name"),
             "link": result["link"],
-            "description":  desc,
+            "description": desc,
             "domain_logo_url": logos.get(domain),
             "_golden": False}  # we need this field to copy data from existing CrowdFlower job
 
@@ -423,7 +423,7 @@ def arg_parser():
     parser.add_argument('-g', '--group', dest='groups', type=GroupDefinition.from_json,
                         action="append")
 
-    parser.add_argument('-j', '--job_to_copy', type=int, default=785883,
+    parser.add_argument('-j', '--job_to_copy', type=int, default=None,
                         help='CrowdFlower job ID to copy for test data units')
 
     return parser.parse_args()

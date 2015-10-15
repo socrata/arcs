@@ -270,6 +270,7 @@ def add_judgments_for_qrps(db_conn, data):
 
 def raw_group_data(db_conn, group_id):
     """
+    Get raw data associated with each query-result pair in a group.
     """
     query = "SELECT raw FROM arcs_group WHERE id=%s"
 
@@ -320,3 +321,7 @@ def group_name(db_conn, group_id):
             return result[0]
         else:
             raise NoSuchGroup.with_id(group_id)
+
+
+def all_unjudged_query():
+    return "SELECT DISTINCT ON (aq.query,aqr.result_fxf) aq.domain,aq.query,aqr.result_fxf,aqgj.group_id,aqr.job_id FROM arcs_query_result AS aqr LEFT JOIN arcs_query AS aq ON aqr.query_id=aq.id LEFT JOIN arcs_query_group_join AS aqgj ON aq.id=aqgj.query_id WHERE judgment IS NULL"

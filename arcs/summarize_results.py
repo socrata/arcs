@@ -35,20 +35,30 @@ def per_query_ndcg(data, ideals, ndcg_at):
     Returns: A Pandas DataFrame with a "query" column, and a "dcg" column
             of DCG scores.
     """
+    def _trim(group_df):
+        return group_df[group_df["result_position"] < ndcg_at]
+
     def query_dcg(group_df):
-        return dcg(group_df["judgment"], group_df["result_position"])
+        data = _trim(group_df)
+        score = dcg(data["judgment"], data["result_position"]) if len(data) > 0 else 0.0
+        return score
 
     def query_ndcg(group_df):
-        return ndcg(group_df["judgment"][:ndcg_at],
-                    indices=group_df["result_position"][:ndcg_at],
-                    ideal_judgments=group_df["ideals"].iloc[0][:ndcg_at])
+        data = _trim(group_df)
+        score = ndcg(data["judgment"],
+                     indices=data["result_position"],
+                     ideal_judgments=data["ideals"].iloc[0][:ndcg_at]) if len(data) > 0 else 0.0
+
+        return score
 
     ideals = ideals.rename(columns={"judgments": "ideals"}, inplace=False)
     data = data.merge(ideals, on=["query", "domain"])
-    grouped = data.groupby("query", as_index=False)
+    grouped = data.groupby(["query", "domain"], as_index=False)
+
     dcgs_df = pd.DataFrame({"query": grouped.first()["query"],
-                            "dcg": grouped.apply(query_dcg),
-                            "ndcg": grouped.apply(query_ndcg)})
+                            "domain": grouped.first()["domain"],
+                            "dcg": grouped.apply(query_dcg).reset_index()[0],
+                            "ndcg": grouped.apply(query_ndcg).reset_index()[0]})
 
     return dcgs_df
 
@@ -58,7 +68,7 @@ def find_oddballs(judged_data):
     TODO: We really want the raw judgments to do this, but that data is not readily available yet,
     so as a first pass, we'll just look at all results whose aggregated judgment is less than 1.
     """
-    return judged_data[judged_data["judgment"] < 1][["query", "domain", "result_fxf"]].to_records()
+    return judged_data[judged_data["judgment"] < 1][["query", "domain", "result_fxf", "result_position"]].to_records()
 
 
 def group_ndcgs(judged_data, ideals, ndcg_at):
@@ -79,6 +89,34 @@ def group_ndcgs(judged_data, ideals, ndcg_at):
     ndcgs_df = per_query_ndcg(judged_group_df, ideals, ndcg_at)
 
     return ndcgs_df
+
+
+def per_domain_ndcgs(judged_data, ideals, ndcg_at):
+    ndcgs_df = group_ndcgs(judged_data, ideals, ndcg_at)
+    grouped = ndcgs_df.groupby("domain")
+    return grouped.mean().reset_index()
+
+
+def precision(judged_data):
+    """
+    Our relevance judgments are on a graded scale of 0-3, where scores of 1-3 are considered
+    relevant, and less than 1 is irrelevant. We compute precision of the result set based on
+    this quanitization.
+
+    Args:
+        judged_data (pandas.DataFrame): A DataFrame with at a minimum query, domain, judgment,
+            result_fxf, and result_position columns
+
+    Returns:
+        A floating point value corresponding to the precision of the result set.
+    """
+    # filter out un-judged queries
+    judged_group_df = judged_data[judged_data["judgment"].notnull()]
+
+    # filter out QRPs with "something went wrong" judgments
+    judged_group_df = judged_data[judged_data["judgment"] >= 0]
+
+    return len(judged_data[judged_data["judgment"] >= 1]) / float(len(judged_data))
 
 
 def num_queries(judged_data):
@@ -106,11 +144,12 @@ def stats(judged_data, ideals, ndcg_at=5):
     Returns:
         A dict of group summary statistics
     """
-    # count the number of queries w/o judgments
-    num_unjudged = len(judged_data[judged_data["judgment"].isnull()])
-
     # get the queries w/ zero results
     zero_result_queries = judged_data[judged_data["result_fxf"].isnull()]
+
+    # count the number of remaining queries w/o judgments
+    judged_data = judged_data[judged_data["result_fxf"].notnull()]
+    num_unjudged = len(judged_data[judged_data["judgment"].isnull()])
 
     # find QRPs with more than one 0 or -1 judgment
     oddballs = [list(x) for x in find_oddballs(judged_data)]
@@ -124,8 +163,8 @@ def stats(judged_data, ideals, ndcg_at=5):
         "unjudged_qrps": num_unjudged,
         "avg_ndcg": mean_ndcg,
         "ndcg_error": 1 - mean_ndcg,
+        "precision": precision(judged_data),
         "num_zero_result_queries": len(zero_result_queries),
-        "zero_result_queries": [list(x) for x in zero_result_queries[["domain", "query"]].to_records(index=False)],
         "num_irrelevant": len(oddballs),
     }
 
