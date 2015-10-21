@@ -27,6 +27,7 @@ class NoSuchGroup(Exception):
     def with_id(group_id):
         return NoSuchGroup("No group found with ID {} in DB".format(group_id))
 
+
 def find_judged_qrps(db_conn):
     """
     Find all the previously judged query-result pairs in the Arcs DB.
@@ -119,6 +120,9 @@ def update_completed_job(db_conn, external_job_id, completed_at, metadata, resul
 
 
 def _json_serialize(obj):
+    """
+    JSON serializer to ensure that numpy bools can be converted into valid JSON.
+    """
     return str(bool(obj)) if isinstance(obj, np.bool_) else simplejson.dumps(obj)
 
 
@@ -184,7 +188,12 @@ def insert_unjudged_query_results(db_conn, job_id, group_id, query_id, query, re
         job_id (int): A unique integer identifier for the job
         group_id (int): A unique integer identifier for the group of results
         query_id (int): A unique integer identifier for the query
-        data (iterable): An iterable of dicts
+        query (str): A query string
+        results (iterable): A list of result dicts
+
+    Returns:
+        A pair containing the number of new QRPs inserted, and the number of redundant QRPs in the
+        result set (this should be 0).
     """
     new_qrps_added = 0
     num_redundant_qrps = 0
@@ -229,6 +238,22 @@ def insert_unjudged_query_results(db_conn, job_id, group_id, query_id, query, re
 
 
 def insert_unjudged_data_for_group(db_conn, job_id, group_id, data):
+    """
+    Insert group data into the DB.
+
+    This function goes through an iterable of dicts row-by-row adding each query, domain, and
+    result set to the DB. It first upserts queries into `arcs_query` table, and from that
+    operation a unique ID is returned. That ID is then inserted as a foreign key into the
+    `arcs_query_result` table for each result in the result set. We track the number of new QRPs
+    and redundant QRPs for debugging purposes.
+
+    Args:
+        db_conn (psycopg2.extensions.connection): Connection to a database
+        job_id (int): A unique integer identifier for the job
+        group_id (int): A unique integer identifier for the group of results
+        query_id (int): A unique integer identifier for the query
+        data (iterable): An iterable of dicts
+    """
     group_num_qrps_added = 0
     group_num_redundant_qrps = 0
 
@@ -268,30 +293,36 @@ def add_judgments_for_qrps(db_conn, data):
             cur.execute(query, (row["judgment"], row["_golden"], row["query"], row["result_fxf"]))
 
 
-def raw_group_data(db_conn, group_id):
-    """
-    Get raw data associated with each query-result pair in a group.
-    """
-    query = "SELECT raw FROM arcs_group WHERE id=%s"
-
-    with db_conn.cursor() as cur:
-        cur.execute(query, (group_id,))
-        return cur.fetchone()[0]
-
-
-def query_result_judgments_query():
-    """
-    """
-    return "SELECT query, result_fxf, judgment FROM arcs_query_result"
-
-
 def query_ideals_query():
+    """
+    Get a SQL query that will return rows of query, domain, and aggregated judgments (as a sorted
+    list) for all queries with non-NULL judgments.
+
+    The ideal results are required for computing NDCG.
+
+    Returns:
+        A SQL query string
+    """
     return "SELECT aq.query, domain, ARRAY_AGG(judgment ORDER BY judgment DESC) AS judgments " \
            "FROM arcs_query_result AS aqr LEFT JOIN arcs_query AS aq ON aqr.query_id=aq.id " \
            "WHERE judgment IS NOT NULL GROUP BY aq.query, aq.domain"
 
 
 def group_queries_and_judgments_query(db_conn, group_id, group_type):
+    """
+    Get a SQL query that will return rows query, result fxf, result position, and judgment for all
+    queries in group `group_id`.
+
+    We order results by query and result position.
+
+    Args:
+        db_conn (psycopg2.extensions.connection): Connection to a database
+        group_id (int): A unique identifier for the group
+        group_type (str): An identifier for group type (eg. "domain_catalog")
+
+    Returns:
+        A SQL query string
+    """
     selects = ["aq.query", "result_fxf", "result_position", "judgment"]
 
     if group_type == 'domain_catalog':
@@ -300,10 +331,12 @@ def group_queries_and_judgments_query(db_conn, group_id, group_type):
     select_str = ', '.join(selects)
 
     # TODO: the use of aliases qj and gj makes this pretty hard to read; fix!
-    query = "SELECT {} FROM arcs_query AS aq LEFT JOIN arcs_query_group_join AS qj ON aq.id=qj.query_id " \
+    query = "SELECT {} FROM arcs_query AS aq LEFT JOIN arcs_query_group_join AS qj " \
+            "ON aq.id=qj.query_id " \
             "LEFT JOIN (SELECT * FROM arcs_query_result AS qr " \
             "LEFT JOIN arcs_group_join AS gj ON gj.query_result_id=qr.id WHERE gj.group_id=%s) " \
-            "AS gj ON aq.id=gj.query_id WHERE qj.group_id=%s ORDER BY query, result_position".format(select_str)
+            "AS gj ON aq.id=gj.query_id " \
+            "WHERE qj.group_id=%s ORDER BY query, result_position".format(select_str)
 
     with db_conn.cursor() as cur:
         query = cur.mogrify(query, (group_id, group_id))
@@ -312,6 +345,16 @@ def group_queries_and_judgments_query(db_conn, group_id, group_type):
 
 
 def group_name(db_conn, group_id):
+    """
+    Get the name of an experimental group from its ID.
+
+    Args:
+        db_conn (psycopg2.extensions.connection): Connection to a database
+        group_id (int): A unique identifier for the group
+
+    Returns:
+        A group name string
+    """
     query = "SELECT name FROM arcs_group WHERE id=%s"
 
     with db_conn.cursor() as cur:
@@ -321,7 +364,3 @@ def group_name(db_conn, group_id):
             return result[0]
         else:
             raise NoSuchGroup.with_id(group_id)
-
-
-def all_unjudged_query():
-    return "SELECT DISTINCT ON (aq.query,aqr.result_fxf) aq.domain,aq.query,aqr.result_fxf,aqgj.group_id,aqr.job_id FROM arcs_query_result AS aqr LEFT JOIN arcs_query AS aq ON aqr.query_id=aq.id LEFT JOIN arcs_query_group_join AS aqgj ON aq.id=aqgj.query_id WHERE judgment IS NULL"

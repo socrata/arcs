@@ -123,15 +123,14 @@ def num_queries(judged_data):
     return len(judged_data.groupby(["query", "domain"]))
 
 
-def stats(judged_data, ideals, ndcg_at=5):
+def stats(judged_data, ideals):
     """
     Get summary statistics for a particular group of query-result pairs.
 
     We report the following:
         num_queries: the number of queries in the group
         unjudged_qrps: the number of query-result pairs without a judgment
-        avg_ndcg: the normalized discounted gain averaged over the queries in the group
-        ndcg_error: the NDCG error (1 - avg_ndcg)
+        ndcg_error: the NDCG error (1 - avg_ndcg_at_5)
         zero_result_queries: the number of queries in the group with no results
         num_irrelevant: the number of query-result pairs judged to be irrelevant
 
@@ -139,7 +138,6 @@ def stats(judged_data, ideals, ndcg_at=5):
         judged_data (pandas.DataFrame): A DataFrame with at a minimum query, domain, judgment,
             result_fxf, and result_position columns
         ideals (pandas.DataFrame): A DataFrame of ideal judgments for each query
-        ndcg_at (int): An optional position up-to-which we compute NDCG
 
     Returns:
         A dict of group summary statistics
@@ -155,21 +153,24 @@ def stats(judged_data, ideals, ndcg_at=5):
     oddballs = [list(x) for x in find_oddballs(judged_data)]
 
     # compute NDCG for each query
-    ndcgs_df = group_ndcgs(judged_data, ideals, ndcg_at)
-    mean_ndcg = ndcgs_df["ndcg"].mean()
+    ndcgs_at_5 = group_ndcgs(judged_data, ideals, 5)
+    ndcgs_at_10 = group_ndcgs(judged_data, ideals, 10)
+    mean_ndcg_at_5 = ndcgs_at_5["ndcg"].mean()
+    mean_ndcg_at_10 = ndcgs_at_10["ndcg"].mean()
 
     return {
         "num_queries": num_queries(judged_data),
         "unjudged_qrps": num_unjudged,
-        "avg_ndcg": mean_ndcg,
-        "ndcg_error": 1 - mean_ndcg,
+        "avg_ndcg_at_5": mean_ndcg_at_5,
+        "avg_ndcg_at_10": mean_ndcg_at_10,
+        "ndcg_error": 1 - mean_ndcg_at_5,
         "precision": precision(judged_data),
         "num_zero_result_queries": len(zero_result_queries),
         "num_irrelevant": len(oddballs),
     }
 
 
-def main(db_conn_str, group_1_id, group_2_id, ndcg_at):
+def main(db_conn_str, group_1_id, group_2_id):
     """
     - get group 1 data
     - get group 2 data
@@ -193,13 +194,13 @@ def main(db_conn_str, group_1_id, group_2_id, ndcg_at):
         name = group_name(db_conn, group_id)
 
         group_data.append(data_df)
-        experiment_stats.update({name: stats(data_df, ideals_df, ndcg_at)})
+        experiment_stats.update({name: stats(data_df, ideals_df)})
 
     total_differences, unique_qrps = _count_num_diff(group_data[0], group_data[1])
     experiment_stats["num_total_diffs"] = total_differences
     experiment_stats["num_unique_qrps"] = unique_qrps
-    experiment_stats["ndcg_delta"] = (experiment_stats[groups[1][1]]["avg_ndcg"] -
-                                      experiment_stats[groups[0][1]]["avg_ndcg"])
+    experiment_stats["ndcg_delta"] = (experiment_stats[groups[1][1]]["avg_ndcg_at_5"] -
+                                      experiment_stats[groups[0][1]]["avg_ndcg_at_5"])
 
     print simplejson.dumps(experiment_stats, indent=4 * ' ')
 
@@ -219,9 +220,6 @@ if __name__ == "__main__":
     parser.add_argument('-D', '--db_conn_str', required=True,
                         help='Database connection string')
 
-    parser.add_argument('-N', '--ndcg_at', type=int, default=5, required=False,
-                        help='The position up to which to compute NDCG')
-
     args = parser.parse_args()
 
-    main(args.db_conn_str, args.group_1_id, args.group_2_id, args.ndcg_at)
+    main(args.db_conn_str, args.group_1_id, args.group_2_id)
