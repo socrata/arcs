@@ -1,9 +1,11 @@
 import argparse
+import os
 import pandas as pd
 import requests
 import logging
 import re
 import psycopg2
+from spacy.en import English, LOCAL_DATA_DIR
 from frozendict import frozendict
 from datetime import datetime
 from experiment import GroupDefinition
@@ -11,6 +13,9 @@ from db import find_judged_qrps, insert_incomplete_job, add_raw_group_results
 from db import insert_unjudged_data_for_group, insert_empty_group
 from crowdflower import create_job_from_copy, add_data_to_job
 from collect_domain_query_data import lang_filter
+
+data_dir = os.environ.get('SPACY_DATA', LOCAL_DATA_DIR)
+nlp = English(data_dir=data_dir)
 
 
 def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
@@ -60,6 +65,13 @@ def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
     return res
 
 
+def _join_sentences(acc, sentences, max_length):
+    if len(sentences) > 0 and len(acc + " " + sentences[0]) < max_length:
+        return _join_sentences(acc + " " + sentences.pop(0), sentences, max_length)
+    else:
+        return acc.strip()
+
+
 def cleanup_description(desc):
     """
     Make a dataset description is readable and not ridiculously long.
@@ -68,11 +80,13 @@ def cleanup_description(desc):
         desc (str): A dataset (or other core object) description
 
     Returns:
-        The first sentence from the description
+        Returns a trimmed version of the description, containing as many sentences from the
+        description as can fit in a string without exceeding 400 characters
     """
-    desc = desc.replace("\r", "\n") if desc else desc
-    desc_sentences = desc.split("\n") if desc else []
-    return desc_sentences[0] if desc_sentences else desc
+    desc_doc = nlp(desc) if desc else desc
+    desc_sentences = [s.text.strip() for s in desc_doc.sents] if desc else []
+
+    return _join_sentences("", desc_sentences, 400) if desc else desc
 
 
 def _transform_cetera_result(result, result_position, logos):

@@ -58,4 +58,4 @@ def is_statistically_significant(g1_query_dcgs, g2_query_dcgs, alpha=.05):
         [Wilcoxon signed-rank test](https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test)
     """
     T, p = wilcoxon(g1_query_dcgs, g2_query_dcgs, zero_method="pratt")
-    return (p <= alpha, p)
+    return (bool(p <= alpha), p)  # converting numpy bool to bool
