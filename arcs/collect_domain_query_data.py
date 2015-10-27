@@ -77,7 +77,7 @@ def normalize_query(query):
 
 def sample_queries_by_domain(df, num_domains, queries_per_domain,
                              min_uniq_terms=10, domain_buffer_factor=1,
-                             query_buffer_factor=None, domains=None,
+                             query_buffer_factor=1, domains=None,
                              query_blacklist=None):
     """
     Get the most frequently occurring query terms grouped by domain.
