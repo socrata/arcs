@@ -124,7 +124,7 @@ Once a job has been completed -- and you should receive an email notification to
 this effect from CrowdFlower -- you can download the judgment data like so:
 
 ```sh
-python arcs/fetch_job_results.py -j 786401 -D 'postgresql://rlvoyer:@localhost:5432/animl_crate'
+python arcs/fetch_job_results.py -j 786401 -D 'postgresql://username:@hostname:5432/db_name'
 ```
 
 The external (CrowdFlower) job ID must be specified (`-j`/`--job_id`). As with
@@ -138,10 +138,39 @@ results and report various statistics (including our core relevance metric,
 NDCG) by running the `summarize_results` script.
 
 ```sh
-
+python arcs/summarize_results.py 14 27 -D 'postgresql://username:@hostname:5432/db_name'
 ```
 
-This will report per-domain NDCG as well as overall NDCG.
+This will report per-domain NDCG as well as overall NDCG. The output should look
+something like this:
+
+```json
+{
+    "num_unique_qrps": 569,
+    "num_total_diffs": 480,
+    "Including both min_should_match and title boosting": {
+        "avg_ndcg_at_5": 0.6562898326463115,
+        "num_zero_result_queries": 97,
+        "num_queries": 139,
+        "num_irrelevant": 188,
+        "avg_ndcg_at_10": 0.6689914334597877,
+        "precision": 0.7545454545454545,
+        "unjudged_qrps": 1,
+        "ndcg_error": 0.34371016735368853
+    },
+    "ndcg_delta": 0.03646560858737047,
+    "basline": {
+        "avg_ndcg_at_5": 0.619824224058941,
+        "num_zero_result_queries": 63,
+        "num_queries": 173,
+        "num_irrelevant": 451,
+        "avg_ndcg_at_10": 0.6506475987305224,
+        "precision": 0.6359967715899919,
+        "unjudged_qrps": 0,
+        "ndcg_error": 0.380175775941059
+    }
+}
+```
 
 ## Calculating inter-annotator agreement
 
