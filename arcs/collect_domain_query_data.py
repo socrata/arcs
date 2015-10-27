@@ -13,28 +13,12 @@ _LOOKS_LIKE_CODE_RE = re.compile(
     r"/etc/passwd|"
     r"systemroot|"
     r"alert\(|"
-    r"<table|"
-    r"<style|"
-    r"<meta|"
+    r"meta|"
     r"\.ini|"
-    r"<img|"
-    r"\\x[\d])",
+    r"img|"
+    r"\\x[\d]|"
+    r"[<>])",
     re.IGNORECASE)
-
-
-def get_top_queries(df):
-    """
-    Get the most frequently occurring query terms irrespective of domain.
-
-    Args:
-        df (pandas.DataFrame): A Pandas DataFrame with a query column
-
-    Returns:
-        A pandas.Series containing the number of occurrences of query in `df`.
-    """
-    df = df[pd.notnull(df["query"])]
-
-    return df["query"].value_counts()
 
 
 def sample_domains(df, num_domains=10, min_query_count=10):
@@ -70,7 +54,7 @@ def get_public_domains(db_conn):
         A 2-column Pandas DataFrame with domain_id and domain_cname
     """
     domains_df = pd.read_sql("SELECT DISTINCT domain_id, domain_cname FROM "
-                             "cetera_core_datatypes_snapshot", con=db_conn)
+                             "cetera_core_datatypes_snapshot WHERE is_public = true", con=db_conn)
 
     return domains_df
 
@@ -92,7 +76,7 @@ def normalize_query(query):
 
 
 def sample_queries_by_domain(df, num_domains, queries_per_domain,
-                             min_uniq_terms=10, domain_buffer_factor=None,
+                             min_uniq_terms=10, domain_buffer_factor=1,
                              query_buffer_factor=None, domains=None,
                              query_blacklist=None):
     """
@@ -115,8 +99,7 @@ def sample_queries_by_domain(df, num_domains, queries_per_domain,
         A list of (domain, query, count) triples
     """
     # get a weighted sample of domains
-    domain_buffer = domain_buffer_factor or 1
-    domains = domains or sample_domains(df, num_domains * domain_buffer)
+    domains = domains or sample_domains(df, num_domains * domain_buffer_factor)
 
     # group by domain, split, and get query counts
     by_domain = df.groupby("domain")
@@ -147,18 +130,24 @@ def sample_queries_by_domain(df, num_domains, queries_per_domain,
 
 
 def lang_filter(s):
+    res = False
+
     try:
-        return ldetect(s) == 'en'
+        res = ldetect(s) == 'en'
     except Exception:
-        return False
+        pass
+
+    return res
 
 
 def is_well_formed_utf8(s):
+    res = False
+
     try:
         s.encode('utf-8')
         res = True
     except:
-        res = False
+        pass
 
     return res
 
@@ -190,6 +179,8 @@ def get_domain_query_sample_from_logs(db_conn, query_logs_json, num_domains,
         num_domains (int): The number of domains to sample
         queries_per_domain (int): The number of queries to sample per domain
         query_blacklist_file (str): An optional file containing queries to exclude
+        query_filters (iterable): An optional list of filtering functions to apply to each query
+            log record
 
     Returns:
         A list of (domain, query, count) triples, where the count indicates how many times the

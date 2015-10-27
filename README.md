@@ -50,13 +50,13 @@ python arcs/collect_domain_query_data.py ~/Data/query_analysis/2015-08-10.logs.c
 ```
 
 This will write 3-column tab-delimited lines containing (domain, query, count)
-pairs to STDOUT.
+triples to STDOUT.
 
 Not surprisingly, there is noise in the query logs. To ensure that we don't send
 garbage queries to crowdsourcing workers for annotation, the
 `collect_domain_query_data` script uses both a hand-curated blacklist and
 filtering regex patterns to eliminate garbage queries. You may find you want to
-add additional patterns or blacklist elements, which you acn do easily
+add additional patterns or blacklist elements, which you can do easily
 enough. The query blacklist is in the `data` directory. Additionally, it may be
 useful to supply custom filters for particular tasks. For example, if you want
 to launch a CrowdFlower task to collect judgments limited to only multi-term
@@ -78,11 +78,11 @@ be greater than or equal to 10% of the total number of rows in a
 job. Additionally, it's a good idea to add to this set regularly to ensure that
 workers are not being exposed to the same questions over and over again.
 
-Any programmatic interaction with the CrowdFlower API reqiures that an
+Any programmatic interaction with the CrowdFlower API requires that a
 CrowdFlower API token be present in your shell environment. You can obtain such
-a token by logging into CrowdFlower and going to
-https://make.crowdflower.com/account/user). Set the CrowdFlower environment
-variable like so:
+a token by logging into CrowdFlower and going
+[here](https://make.crowdflower.com/account/user). Set the CrowdFlower
+environment variable like so:
 
 ```bash
 export CROWDFLOWER_API_KEY=123456789abcdefghijk       
@@ -98,7 +98,7 @@ which that will do the following:
 
 1. collect results for all queries from an input query file from Cetera
 2. store raw results data as a CSV for posterity / inspection
-3. extract relevant result fields from each query-result pair to creat3
+3. extract relevant result fields from each query-result pair to create
    CrowdFlower task
 4. launch CrowdFlower task copying existing test units from existing job
 5. persist job data in a postgres DB

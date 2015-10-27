@@ -2,6 +2,7 @@ import pandas as pd
 import psycopg2
 import simplejson
 from evaluation import dcg, ndcg
+from evaluation import is_statistically_significant
 from db import group_queries_and_judgments_query, query_ideals_query, group_name
 
 
@@ -168,6 +169,11 @@ def stats(judged_data, ideals):
         "num_zero_result_queries": len(zero_result_queries),
         "num_irrelevant": len(oddballs),
     }
+
+
+def is_stat_sig(group_1_ndcgs, group_2_ndcgs):
+    merged = pd.merge(group_1_ndcgs, group_2_ndcgs, on=["query", "domain"], suffixes=('_1', '_2'))
+    return is_statistically_significant(merged["ndcg_1"], merged["ndcg_2"])
 
 
 def main(db_conn_str, group_1_id, group_2_id):
