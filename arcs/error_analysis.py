@@ -1,3 +1,4 @@
+import pandas as pd
 
 
 def get_irrelevant_qrps(results):
@@ -21,8 +22,6 @@ def get_missing_info_qrps(results):
 
 if __name__ == "__main__":
     import argparse
-    import sys
-    import pandas as pd
     from download_crowdflower import get_judgments
 
     parser = argparse.ArgumentParser(

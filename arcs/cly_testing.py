@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 from experiment import Group, Experiment
-from collection import cleanup_description
+from launch_job import cleanup_description
 
 
 def get_dataset_url(domain, _id, name):
