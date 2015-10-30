@@ -17,6 +17,11 @@ from collect_domain_query_data import lang_filter
 data_dir = os.environ.get('SPACY_DATA', LOCAL_DATA_DIR)
 nlp = English(data_dir=data_dir)
 
+CORE_COLUMNS = ['domain', 'query', 'result_fxf', 'result_position', 'group_id', '_golden']
+DISPLAY_DATA = ['domain_logo_url', 'name', 'link', 'description']
+CSV_COLUMNS = CORE_COLUMNS + DISPLAY_DATA
+RAW_COLUMNS = ['domain', 'query', 'results', 'group_id']
+
 
 def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
                        num_results=10, cetera_params=None,
@@ -105,12 +110,6 @@ def _transform_cetera_result(result, result_position, logos):
             "description": desc,
             "domain_logo_url": logos.get(domain),
             "_golden": False}  # we need this field to copy data from existing CrowdFlower job
-
-
-CORE_COLUMNS = ['domain', 'query', 'result_fxf', 'result_position', 'group_id', '_golden']
-DISPLAY_DATA = ['domain_logo_url', 'name', 'link', 'description']
-CSV_COLUMNS = CORE_COLUMNS + DISPLAY_DATA
-RAW_COLUMNS = ['domain', 'query', 'results', 'group_id']
 
 
 def raw_results_to_dataframe(group_results, group_id, logos):

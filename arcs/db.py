@@ -47,6 +47,11 @@ def find_judged_qrps(db_conn):
 
 def insert_incomplete_job(db_conn, job):
     """
+    Insert a new/incomplete job into the database.
+
+    There is a UNIQUE constraint on external_id, so if we've already inserted a record w/ that ID,
+    it will raise a DB exception.
+
     Args:
         db_conn (psycopg2.extensions.connection): Connection to a database
         job (Job): An Arcs Job object

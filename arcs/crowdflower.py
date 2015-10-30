@@ -74,6 +74,11 @@ def add_data_to_job(job_id, csv_file, api_key=None):
 
 def delete_job(job_id, api_key=None):
     """
+    Delete a CrowdFlower job by ID.
+
+    Args:
+        job_id (int): The unique job identifier for the job
+        api_key (str): API token (use "CROWDFLOWER_API_KEY" env variable if not specified)
     """
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
     url = "https://api.crowdflower.com/v1/jobs/{}?key={}".format(job_id, api_key)
@@ -83,6 +88,14 @@ def delete_job(job_id, api_key=None):
 
 def get_job(job_id, api_key=None):
     """
+    Get a CrowdFlower job by ID.
+
+    Args:
+        job_id (int): The unique job identifier for the job
+        api_key (str): API token (use "CROWDFLOWER_API_KEY" env variable if not specified)
+
+    Returns:
+        A CrowdFlower job as a dictionary.
     """
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
     url = "https://api.crowdflower.com/v1/jobs/{}?key={}".format(job_id, api_key)

@@ -36,16 +36,16 @@ def per_query_ndcg(data, ideals, ndcg_at):
     Returns: A Pandas DataFrame with a "query" column, and a "dcg" column
             of DCG scores.
     """
-    def _trim(group_df):
+    def trim(group_df):
         return group_df[group_df["result_position"] < ndcg_at]
 
     def query_dcg(group_df):
-        data = _trim(group_df)
+        data = trim(group_df)
         score = dcg(data["judgment"], data["result_position"]) if len(data) > 0 else 0.0
         return score
 
     def query_ndcg(group_df):
-        data = _trim(group_df)
+        data = trim(group_df)
         score = ndcg(data["judgment"],
                      indices=data["result_position"],
                      ideal_judgments=data["ideals"].iloc[0][:ndcg_at]) if len(data) > 0 else 0.0
