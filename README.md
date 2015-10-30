@@ -23,13 +23,11 @@ From the Arcs virtual environment created above, do the following:
 python setup.py test
 ```
 
-## Parsing Nginx logs for query data
+## Parsing server logs for query data
 
-Use the following command to parse Nginx logs for Catalog queries and to output
-them as JSON. Run this from the arcs directory. TODO: make this happen
-periodically and automatically. Set the dirname variable to the path to a
-directory of gzipped Nginx logs (as downloaded from one of our front-end load
-balancers).
+Use the following command to parse server logs for Catalog queries and to output
+them as JSON. Run this from the arcs directory. Set the dirname variable to the
+path to a directory of gzipped server logs.
 
 ```sh
 dirname=~/Data/query_analysis/2015-08-10.logs
