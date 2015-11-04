@@ -1,11 +1,16 @@
 Assessing Relevance of Catalog Search (ARCS)
 ============================================
 
-ARCS is a library for Assessing Relevance of our Catalog Search system.
-Specifically, it is intended to help us collect relevance judgments from
-crowdsourcing workers, and from those judgments, to compute relevance metrics
-such as normalized discounted cumulative gain (NDCG) and mean average precision
-(MAP).
+ARCS is a Python package which includes a handful of utilities for Assessing
+Relevance of our Catalog Search system. Specifically, it is intended to help us
+collect relevance judgments from crowdsourcing workers, and from those
+judgments, to compute relevance metrics such as normalized discounted cumulative
+gain (NDCG) and mean average precision (MAP).
+
+In general, our aim is to make this general enough to work well with any
+crowdsourcing platform. That said, we have been using CrowdFlower for this
+particular crowdsourcing task, and this is reflected in the initial version of
+this software.
 
 ## Installing
 
@@ -40,7 +45,7 @@ done > 2015-08-10.logs.concat.json
 
 You may be interested in sampling domains and queries, simply for the purpose of
 eyballing results, error analysis, or for serving as the basis for a new
-CrowdFlower catalog relevance task. You'll need a parsed query log JSON file
+crowdsourcing catalog relevance task. You'll need a parsed query log JSON file
 (like the one generated in the previous step). Then you can do the following:
 
 ```sh
@@ -57,7 +62,7 @@ filtering regex patterns to eliminate garbage queries. You may find you want to
 add additional patterns or blacklist elements, which you can do easily
 enough. The query blacklist is in the `data` directory. Additionally, it may be
 useful to supply custom filters for particular tasks. For example, if you want
-to launch a CrowdFlower task to collect judgments limited to only multi-term
+to launch a crowdsourcing task to collect judgments limited to only multi-term
 queries, you can supply custom filters like so:
 
 ```sh
@@ -87,14 +92,14 @@ export CROWDFLOWER_API_KEY=123456789abcdefghijk
 ```
 
 Add this to your environment resource or profile file to ensure that it is set
-on login.
-
-Note that the token included above is fake.
+on login. Note that the token included above is a stub, meant to be replaced
+with an actual token.
 
 To simplify job creation and data bookeeping, we've added a script (launch_job),
 which that will do the following:
 
-1. collect results for all queries from an input query file from Cetera
+1. collect results for all queries from an input query file from our catalog
+   search system ([Cetera](http://www.github.com/socrata/cetera))
 2. store raw results data as a CSV for posterity / inspection
 3. extract relevant result fields from each query-result pair to create
    CrowdFlower task
@@ -118,15 +123,18 @@ dict (which is used for each query to Cetera).
 You may optionally specify a `--job_to_copy` (`-j`) parameter. This indicates
 the CrowdFlower job that should be used as the basis for the task.
 
+Some documentation of the various command-line parameters is available by
+passing the help option (`-h`|`--help`).
+
 Once a job has been completed -- and you should receive an email notification to
-this effect from CrowdFlower -- you can download the judgment data like so:
+this effect from CrowdFlower -- you can download the judged data like so:
 
 ```sh
-python arcs/fetch_job_results.py -j 786401 -D 'postgresql://username:@hostname:5432/db_name'
+python arcs/fetch_job_results.py job_id -D 'postgresql://username:@hostname:5432/db_name'
 ```
 
-The external (CrowdFlower) job ID must be specified (`-j`/`--job_id`). As with
-the launch script above, a DB connection string must be supplied
+The external (CrowdFlower) job ID must be specified as the first argument. As with
+the launch script above, a DB connection string must also be supplied
 (`-D`/`--db_conn_str`).
 
 ## Measuring relevance
@@ -174,9 +182,9 @@ something like this:
 
 It's useful to know how much agreement there is between our workers as it gives
 us some signal about the difficulty, interpretability, and subjectivity of our
-task. You can calculate inter-annotator agreement by first downloading non-aggregated data
-from CrowdFlower (Results > Settings > "All answers" in the dropdown before downloading
-the aggregated result) like so:
+task. You can calculate inter-annotator agreement by first downloading
+non-aggregated data from CrowdFlower (Results > Settings > "All answers" in the
+dropdown before downloading the aggregated result) like so:
 
 ```bash
 python arcs/calc_iaa.py -c file_from_crowdflower.csv --top_n
@@ -189,17 +197,18 @@ workers.
 
 ## Error analysis
 
-After getting judged data back from CrowdFlower, it's a good idea to inspect the
-the rows where the results were obviously bad, or where something went wrong and
-prevented the workers from assigning a judgment score. You can achieve this with
-the following:
+After getting judged data back from our chosen crowdsourcing platform, it's a
+good idea to inspect the the rows where the results were obviously bad, or where
+something went wrong and prevented the workers from assigning a judgment
+score. You can achieve this with the following:
 
 ```bash
-python arcs/error_analysis.py 755163 -o 20150806.errors.csv
+python arcs/error_analysis.py job_id -o 20150806.errors.csv
 ```
 
-This will save a CSV to the path specified by the -o parameter. The rows will be
-sorted by the number of bad judgments.
+Note that this command requires that a valid job identifier be passed as the
+first argument. This will save a CSV to the path specified by the -o
+parameter. The rows will be sorted by the number of bad judgments.
 
 ## References
 

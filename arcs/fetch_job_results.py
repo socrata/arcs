@@ -89,7 +89,7 @@ def arg_parser():
     parser = argparse.ArgumentParser(description='Take data from a crowdsourcing platform '
                                      'and upload it to a postgres database')
 
-    parser.add_argument('-j', '--job_id', dest='external_job_id', required=True,
+    parser.add_argument('job_id', dest='external_job_id',
                         help='External (eg. Crowdflower) job ID')
 
     parser.add_argument('-D', '--db_conn_str', required=True,

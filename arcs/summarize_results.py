@@ -191,22 +191,24 @@ def main(db_conn_str, group_1_id, group_2_id):
 
     groups = [group_1_id, group_2_id]
     groups = [(group_id, group_name(db_conn, group_id)) for group_id in groups]
+    ndcgs = []
 
     for group_id in [group_1_id, group_2_id]:
         data_df = pd.read_sql(
             group_queries_and_judgments_query(db_conn, group_id, "domain_catalog"),
             db_conn)
 
-        name = group_name(db_conn, group_id)
+        name = group_name(db_conn, group_id) + " " + str(group_id)
 
         group_data.append(data_df)
-        experiment_stats.update({name: stats(data_df, ideals_df)})
+        group_stats = stats(data_df, ideals_df)
+        experiment_stats.update({name: group_stats})
+        ndcgs.append(group_stats["avg_ndcg_at_5"])
 
     total_differences, unique_qrps = _count_num_diff(group_data[0], group_data[1])
     experiment_stats["num_total_diffs"] = total_differences
     experiment_stats["num_unique_qrps"] = unique_qrps
-    experiment_stats["ndcg_delta"] = (experiment_stats[groups[1][1]]["avg_ndcg_at_5"] -
-                                      experiment_stats[groups[0][1]]["avg_ndcg_at_5"])
+    experiment_stats["ndcg_delta"] = (ndcgs[1] - ndcgs[0])
 
     print simplejson.dumps(experiment_stats, indent=4 * ' ')
 
