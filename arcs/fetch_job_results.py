@@ -85,23 +85,6 @@ def fetch_and_write_job_results(db_conn, external_job_id):
     add_judgments_for_qrps(db_conn, judged_qrps)
 
 
-def arg_parser():
-    parser = argparse.ArgumentParser(description='Take data from a crowdsourcing platform '
-                                     'and upload it to a postgres database')
-
-    parser.add_argument('external_job_id', help='External (eg. Crowdflower) job ID')
-
-    parser.add_argument('-D', '--db_conn_str', required=True,
-                        help='Database connection string')
-
-    parser.add_argument('-p', '--platform', dest='crowdsource_platform',
-                        default='crowdflower', choices=ALLOWED_CROWDSOURCE_PLATFORMS,
-                        help='Crowdsourcing platform to get results from, \
-                        default %(default)s, choices %(choices)s')
-
-    return parser
-
-
 def main(args):
     """
     - Create a connection to RDS
@@ -123,6 +106,20 @@ def main(args):
 if __name__ == "__main__":
     psycopg2.extensions.register_adapter(dict, psycopg2.extras.Json)
     logging.basicConfig(level=logging.INFO)
-    parser = arg_parser()
+
+    parser = argparse.ArgumentParser(description='Take data from a crowdsourcing platform '
+                                     'and upload it to a postgres database')
+
+    parser.add_argument('external_job_id', help='External (eg. Crowdflower) job ID')
+
+    parser.add_argument('-D', '--db_conn_str', required=True,
+                        help='Database connection string')
+
+    parser.add_argument('-p', '--platform', dest='crowdsource_platform',
+                        default='crowdflower', choices=ALLOWED_CROWDSOURCE_PLATFORMS,
+                        help='Crowdsourcing platform to get results from, \
+                        default %(default)s, choices %(choices)s')
+
     args = parser.parse_args()
+
     main(args)
