@@ -89,8 +89,7 @@ def arg_parser():
     parser = argparse.ArgumentParser(description='Take data from a crowdsourcing platform '
                                      'and upload it to a postgres database')
 
-    parser.add_argument('job_id', dest='external_job_id',
-                        help='External (eg. Crowdflower) job ID')
+    parser.add_argument('external_job_id', help='External (eg. Crowdflower) job ID')
 
     parser.add_argument('-D', '--db_conn_str', required=True,
                         help='Database connection string')
@@ -100,8 +99,7 @@ def arg_parser():
                         help='Crowdsourcing platform to get results from, \
                         default %(default)s, choices %(choices)s')
 
-    args = parser.parse_args()
-    return args
+    return parser
 
 
 def main(args):
@@ -125,5 +123,6 @@ def main(args):
 if __name__ == "__main__":
     psycopg2.extensions.register_adapter(dict, psycopg2.extras.Json)
     logging.basicConfig(level=logging.INFO)
-    args = arg_parser()
+    parser = arg_parser()
+    args = parser.parse_args()
     main(args)
