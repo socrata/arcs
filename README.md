@@ -130,7 +130,7 @@ Once a job has been completed -- and you should receive an email notification to
 this effect from CrowdFlower -- you can download the judged data like so:
 
 ```sh
-python arcs/fetch_job_results.py job_id -D 'postgresql://username:@hostname:5432/db_name'
+python arcs/fetch_job_results.py <job_id> -D 'postgresql://username:@hostname:5432/db_name'
 ```
 
 The external (CrowdFlower) job ID must be specified as the first argument. As with
@@ -203,7 +203,7 @@ something went wrong and prevented the workers from assigning a judgment
 score. You can achieve this with the following:
 
 ```bash
-python arcs/error_analysis.py job_id -o 20150806.errors.csv
+python arcs/error_analysis.py <job_id> -o 20150806.errors.csv
 ```
 
 Note that this command requires that a valid job identifier be passed as the
