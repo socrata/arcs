@@ -300,8 +300,7 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
         job_to_copy (int): Optional external identifier for existing job to copy for its test data
 
     Returns:
-        A pair containing a path to the filtered CrowdFlower CSV file (containing only those rows
-        that require a judgment) and an Arcs Job with its external ID populated
+        An Arcs Job with its external ID populated
     """
     logging.info("Creating CrowdFlower job")
 
