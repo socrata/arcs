@@ -233,7 +233,7 @@ def expanded_results_dataframe(raw_results, logos):
     return expanded_results_df
 
 
-def collect_search_results(db_conn, groups, query_domain_file, num_results,
+def collect_search_results(groups, query_domain_file, num_results,
                            output_file=None, cetera_host=None, cetera_port=None):
     """
     Send queries included in `query_domain_file` to Cetera, collecting n=num_results results
@@ -241,7 +241,6 @@ def collect_search_results(db_conn, groups, query_domain_file, num_results,
     up into a Pandas DataFrame. Write out full expanded results to a CSV.
 
     Args:
-        db_conn (psycopg2.extensions.connection): Connection to a database
         groups (iterable): An iterable of GroupDefinitions
         query_domain_file (str): A 2-column tab-delimited file containing query-domain pairs
         num_results (int): The number of search results to fetch for each query
@@ -301,8 +300,7 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
         job_to_copy (int): Optional external identifier for existing job to copy for its test data
 
     Returns:
-        A pair containing a path to the filtered CrowdFlower CSV file (containing only those rows
-        that require a judgment) and an Arcs Job with its external ID populated
+        An Arcs Job with its external ID populated
     """
     logging.info("Creating CrowdFlower job")
 
