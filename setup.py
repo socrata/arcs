@@ -9,9 +9,9 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-install_requires_list = ['pandas==0.16.2',
+install_requires_list = ['pandas==0.17.0',
                          'matplotlib==1.4.3',
-                         'numpy==1.9.1',
+                         'numpy==1.10.1',
                          'frozendict==0.4',
                          'simplejson==3.7.3',
                          'requests[security]==2.7.0',

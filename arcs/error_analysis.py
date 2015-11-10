@@ -3,9 +3,10 @@ import pandas as pd
 from launch_job import cleanup_description
 from db import group_queries_and_judgments_query
 
-# NB: this code was pulled from es_load.py (in cetera-etl) and is subject to change. Ideally, we
-# would have a shared module for these types of data contracts. But things have been changing
-# quickly. Let's revisit when ETL is more stable.
+# NB: this code was pulled from es_load.py:
+# https://github.com/socrata/cetera-etl/blob/master/src/etl/es_load.py#L49-L63)
+# It is subject to change. Ideally, we would have a shared module for these types of data
+# contracts. But things have been changing quickly. Let's revisit when ETL is more stable.
 DATATYPE_MAPPING = {
     "datasets": ("dataset", ""),
     "datalenses": ("datalens", ""),
@@ -19,7 +20,8 @@ DATATYPE_MAPPING = {
     "geo_maps": ("map", "geo"),
     "tabular_maps": ("map", "tabular"),
     "datalens_maps": ("map", "datalens"),
-    "pulses": ("pulse", "")
+    "pulses": ("pulse", ""),
+    "stories": ("story", "")
 }
 
 
@@ -82,12 +84,12 @@ def get_dataset_url(domain, fxf, datatype):
     Returns:
         A dataset URL
     """
-    if DATATYPE_MAPPING.get(datatype) in [
-            ("tabular", "data_lens"), ("tabular", "data_lens_chart"),
-            ("tabular", "data_lens_map")]:
-        url = "https://{}/view/{}".format(domain, fxf)
-    elif datatype in [("href", "story")]:
+    dtype, vtype = DATATYPE_MAPPING.get(datatype, (None, None))
+
+    if dtype == "story":
         url = "https://{}/stories/s/{}".format(domain, fxf)
+    elif dtype == "datalens" or vtype == "datalens":
+        url = "https://{}/view/{}".format(domain, fxf)
     else:
         url = "https://{}/d/{}".format(domain, fxf)
 
