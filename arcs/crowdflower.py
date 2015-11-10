@@ -156,20 +156,26 @@ def extract_json_from_csv(zip_data):
     full_json = {}
 
     for i, line in enumerate(zip_data):
-        j = simplejson.loads(line)
-        full_json[i] = j
-        data = j.get('data')
+        unit = simplejson.loads(line)
+        full_json[i] = unit  # fix this
+        data = unit.get('data')
         query = data.get('query')
         # we should always include result_fxf in the data we hand off
         # to CrowdFlower, so that we don't have to parse it out
         # of the URL (but we can do that if necessary)
+        # but we didn't in the first job we ran, thus the 'or' expression here
         result_fxf = data.get('result_fxf') or FXF_RE.search(data.get('link')).group()
-        _golden = data.get('_golden', full_json[i]["state"].lower() in ("golden", "hidden_gold"))
-        # TO DO: the following doesn't seem quite, right
-        judgment = j['results']['relevance'].get('avg')
+        _golden = unit["state"] == "golden"
+        judgment = unit['results']['relevance'].get('avg')
+        raw_judgments = [{
+            "worker_id": j["worker_id"],
+            "worker_trust": j["worker_trust"],
+            "relevance": int(j["data"]["relevance"])
+        } for j in unit["results"]["judgments"]]
 
         judged_data.append(
-            {"query": query, "result_fxf": result_fxf, "judgment": judgment, "_golden": _golden})
+            {"query": query, "result_fxf": result_fxf, "judgment": judgment, "_golden": _golden,
+             "raw_judgments": raw_judgments})
 
     return judged_data, full_json
 

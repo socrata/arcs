@@ -16,8 +16,8 @@ def _count_num_diff(group1_df, group2_df):
 
     # number of unique qrps; should be the same between the two groups, assuming that the number of
     # queries and results for each query were the same;
-    group_1_qrps = {(row[0], row[1], row[4][1]) for row in group1_df.to_records(index=False)}
-    group_2_qrps = {(row[0], row[1], row[4][1]) for row in group2_df.to_records(index=False)}
+    group_1_qrps = {(row[0], row[1], row[2]) for row in group1_df.to_records(index=False)}
+    group_2_qrps = {(row[0], row[1], row[2]) for row in group2_df.to_records(index=False)}
     num_qrps_diff = len(group_1_qrps - group_2_qrps)
 
     return (total_differences, num_qrps_diff)
@@ -120,10 +120,6 @@ def precision(judged_data):
     return len(judged_data[judged_data["judgment"] >= 1]) / float(len(judged_data))
 
 
-def num_queries(judged_data):
-    return len(judged_data.groupby(["query", "domain"]))
-
-
 def stats(judged_data, ideals):
     """
     Get summary statistics for a particular group of query-result pairs.
@@ -147,6 +143,7 @@ def stats(judged_data, ideals):
     zero_result_queries = judged_data[judged_data["result_fxf"].isnull()]
 
     # count the number of remaining queries w/o judgments
+    num_queries = len(judged_data.groupby(["query", "domain"]))
     judged_data = judged_data[judged_data["result_fxf"].notnull()]
     num_unjudged = len(judged_data[judged_data["judgment"].isnull()])
 
@@ -160,7 +157,7 @@ def stats(judged_data, ideals):
     mean_ndcg_at_10 = ndcgs_at_10["ndcg"].mean()
 
     return {
-        "num_queries": num_queries(judged_data),
+        "num_queries": num_queries,
         "unjudged_qrps": num_unjudged,
         "avg_ndcg_at_5": mean_ndcg_at_5,
         "avg_ndcg_at_10": mean_ndcg_at_10,

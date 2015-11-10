@@ -98,6 +98,9 @@ def insert_empty_group(db_conn, group):
 
 def update_completed_job(db_conn, external_job_id, completed_at, metadata, results):
     """
+    Update a completed job by recording its completion date and job metadata, along with raw and
+    aggregated judgment data.
+
     Args:
         db_conn (psycopg2.extensions.connection): Connection to a database
         external_job_id (str): A unique identifier for the external job
@@ -133,6 +136,8 @@ def _json_serialize(obj):
 
 def add_raw_group_results(db_conn, group_id, data):
     """
+    Add raw group data.
+
     Args:
         db_conn (psycopg2.extensions.connection): Connection to a database
         group_id (int): A unique identifier for the group
@@ -148,7 +153,7 @@ def add_raw_group_results(db_conn, group_id, data):
 
 def insert_query(db_conn, group_id, query, domain=None):
     """
-    Insert query and domain.
+    Insert query and optional domain.
 
     If the pair already exists, simply return the ID of the existing pair.
 
@@ -159,7 +164,7 @@ def insert_query(db_conn, group_id, query, domain=None):
         domain (str): Optional domain (eg. "data.cityofchicago.org")
 
     Returns:
-        a query ID
+        The query ID for the newly inserted query (or the existing query if its already in the DB)
     """
     with db_conn.cursor() as cur:
         insert = "INSERT INTO arcs_query (query, domain) " \
@@ -187,6 +192,9 @@ def insert_query(db_conn, group_id, query, domain=None):
 def insert_unjudged_query_results(db_conn, job_id, group_id, query_id, query, results):
     """
     Insert group data into the DB.
+
+    Each dict in `results` should correspond to a particular search result. Accordingly, it must
+    have at a minimum the following fields: `result_fxf` and `result_position`.
 
     Args:
         db_conn (psycopg2.extensions.connection): Connection to a database
@@ -252,11 +260,14 @@ def insert_unjudged_data_for_group(db_conn, job_id, group_id, data):
     `arcs_query_result` table for each result in the result set. We track the number of new QRPs
     and redundant QRPs for debugging purposes.
 
+    Each dict in `data` should correspond to a particular query. Accordingly, it must have the
+    following fields: `query`, `domain`, and `results`. Similarly, the results field is an iterable
+    of dicts containing at a minimum a `result_fxf` field, and a `result_position` field.
+
     Args:
         db_conn (psycopg2.extensions.connection): Connection to a database
         job_id (int): A unique integer identifier for the job
         group_id (int): A unique integer identifier for the group of results
-        query_id (int): A unique integer identifier for the query
         data (iterable): An iterable of dicts
     """
     group_num_qrps_added = 0
@@ -287,15 +298,40 @@ def add_judgments_for_qrps(db_conn, data):
     """
     Add judgments to the DB.
 
+    Once we've collected judgments for a group's QRPs, we need to persist them. For gold units, we
+    may have previous judgments, so we add new raw judgments to any existing raw judgments. In
+    addition to `raw_judgments`, we set `judgment` and `is_gold`.
+
+    `data` must be an iterable dictionaries where each dictionary must contain at a minimum
+    `query`, `result_fxf`, and `raw_judgments` fields.
+
     Args:
         db_conn (psycopg2.extensions.connection): Connection to a database
         data (iterable): An iterable of dicts
     """
-    query = "UPDATE arcs_query_result SET judgment=%s, is_gold=%s WHERE query=%s AND result_fxf=%s"
+    get_previous_judgments = "SELECT COALESCE(raw_judgments, '[]') FROM arcs_query_result " \
+                             "WHERE query=%s AND result_fxf=%s"
+
+    update = "UPDATE arcs_query_result SET judgment=%s, is_gold=%s, raw_judgments=%s " \
+             "WHERE query=%s AND result_fxf=%s"
 
     for row in data:
+        query = row["query"]
+        result_fxf = row["result_fxf"]
+        raw_judgments = row["raw_judgments"]
+
         with db_conn.cursor() as cur:
-            cur.execute(query, (row["judgment"], row["_golden"], row["query"], row["result_fxf"]))
+            cur.execute(get_previous_judgments, (query, result_fxf))
+            result = cur.fetchone()
+
+            if not result:
+                logging.warn(
+                    "Missing entry in arcs_query_result for ({}, {})".format(query, result_fxf))
+            else:
+                raw_judgments.extend(result[0])
+
+            cur.execute(update, (row["judgment"], row["_golden"],
+                                 raw_judgments, query, result_fxf))
 
 
 def query_ideals_query():
@@ -328,7 +364,8 @@ def group_queries_and_judgments_query(db_conn, group_id, group_type):
     Returns:
         A SQL query string
     """
-    selects = ["aq.query", "result_fxf", "result_position", "judgment"]
+    selects = ["aq.query", "result_fxf", "result_position", "judgment",
+               "COALESCE(raw_judgments, '[]') AS raw_judgments"]
 
     if group_type == 'domain_catalog':
         selects.append("domain")
@@ -369,3 +406,25 @@ def group_name(db_conn, group_id):
             return result[0]
         else:
             raise NoSuchGroup.with_id(group_id)
+
+
+def get_raw_results_for_job(db_conn, external_job_id):
+    """
+    Get the raw job results using the external job identifier.
+
+    Args:
+        db_conn (psycopg2.extensions.connection): Connection to a database
+        external_job_id (str): The external identifier for the job
+
+    Returns:
+        A dictionary of results data
+    """
+    query = "SELECT results FROM arcs_job WHERE external_id=%s"
+
+    with db_conn.cursor() as cur:
+        cur.execute(query, (external_job_id,))
+        result = cur.fetchone()
+        if result:
+            return result[0]
+        else:
+            raise NoSuchJob.with_external_id(external_job_id)
