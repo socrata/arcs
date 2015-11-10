@@ -203,12 +203,14 @@ something went wrong and prevented the workers from assigning a judgment
 score. You can achieve this with the following:
 
 ```bash
-python arcs/error_analysis.py <job_id> -o 20150806.errors.csv
+python arcs/error_analysis.py 28 -D 'postgresql://username:@hostname:5432/db_name' -o 20151110.errors.csv
 ```
 
-Note that this command requires that a valid job identifier be passed as the
-first argument. This will save a CSV to the path specified by the -o
-parameter. The rows will be sorted by the number of bad judgments.
+This script will output a list of all the QRPs that were assigned at least 2
+"irrelevant" judgments. The results will be sorted based on aggregated
+judgment. The first argument is the ID of the group to use as the basis for
+analysis and is required. As is the case with other utilities, a DB connection
+string is required and is specified with the -D flag.
 
 ## References
 
