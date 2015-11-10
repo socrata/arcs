@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS arcs_query_result (
   result_fxf text NOT NULL,
   judgment real,
   is_gold bool DEFAULT FALSE,
+  raw_judgments json,
   job_id integer REFERENCES arcs_job (id), -- for tracking source of judgment
   query_id integer REFERENCES arcs_query (id),
   UNIQUE (query, result_fxf),

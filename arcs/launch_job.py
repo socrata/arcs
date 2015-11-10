@@ -88,8 +88,9 @@ def cleanup_description(desc):
         Returns a trimmed version of the description, containing as many sentences from the
         description as can fit in a string without exceeding 400 characters
     """
+    desc = desc.replace("\r", "\n")
     desc_doc = nlp(desc) if desc else desc
-    desc_sentences = [s.text.strip() for s in desc_doc.sents] if desc else []
+    desc_sentences = [s.text.replace("\n", " ").strip() for s in desc_doc.sents] if desc else []
 
     return _join_sentences("", desc_sentences, 400) if desc else desc
 

@@ -1,4 +1,27 @@
+import psycopg2
 import pandas as pd
+from launch_job import cleanup_description
+from db import group_queries_and_judgments_query
+
+DATATYPE_MAPPING = {
+    "datasets": ("dataset", ""),
+    "datalenses": ("datalens", ""),
+    "calendars": ("calendar", ""),
+    "charts": ("chart", ""),
+    "datalens_charts": ("chart", "datalens"),
+    "files": ("file", ""),
+    "forms": ("form", ""),
+    "filters": ("filter", ""),
+    "hrefs": ("href", ""),
+    "geo_maps": ("map", "geo"),
+    "tabular_maps": ("map", "tabular"),
+    "datalens_maps": ("map", "datalens"),
+    "pulses": ("pulse", "")
+}
+
+
+OUTPUT_COLUMNS = ("query", "result_fxf", "result_position",
+                  "name", "description", "url", "judgment")
 
 
 def get_irrelevant_qrps(results):
@@ -11,43 +34,124 @@ def get_irrelevant_qrps(results):
             for d in results.itervalues() if d["relevance"]["res"].count("0") > 1]
 
 
-def get_missing_info_qrps(results):
+def _get_max_source_tag(db_conn):
+    with db_conn.cursor() as cur:
+        cur.execute("SELECT MAX(source_tag) FROM cetera_core_datatypes_snapshot")
+        return cur.fetchone()[0]
+
+
+def get_fxf_metadata_mapping(db_conn):
     """
-    Get a list of query-result pairs from the raw judgments where one or more
-    workers judged the result unjudgeable.
+    Get a dict mapping FXF to useful metadata about a dataset.
+
+    Args:
+        db_conn (psycopg2.extensions.connection): Connection to a database
+            instance
+
+    Returns:
+        A dict of FXFs to dataset metadata
     """
-    error = "not enough info"
-    return [(d["query"], d["name"], d["link"], error, d["relevance"]["res"].count("-1"))
-            for d in results.itervalues() if d["relevance"]["res"].count("-1") > 1]
+    query = "SELECT nbe_fxf, datatype, domain_cname, unit_name AS name, " \
+            "unit_desc AS description " \
+            "FROM cetera_core_datatypes_snapshot WHERE source_tag = %s"
+
+    with db_conn.cursor() as cur:
+        source_tag = _get_max_source_tag(db_conn)
+        cur.execute(query, (source_tag,))
+
+        return {nbe_fxf: {
+            "datatype": datatype,
+            "domain_cname": domain_cname,
+            "name": name,
+            "description": description
+        } for nbe_fxf, datatype, domain_cname, name, description in cur}
+
+
+def get_dataset_url(domain, fxf, datatype):
+    """
+    Generate a permalink from the dataset's domain, fxf, and datatype.
+
+    Args:
+        domain (str): The domain of the dataset
+        fxf (str): The fxf of the dataset
+        datatype (tuple): The (view_type, display_type) of the dataset
+
+    Returns:
+        A dataset URL
+    """
+    if DATATYPE_MAPPING.get(datatype) in [
+            ("tabular", "data_lens"), ("tabular", "data_lens_chart"),
+            ("tabular", "data_lens_map")]:
+        url = "https://{}/view/{}".format(domain, fxf)
+    elif datatype in [("href", "story")]:
+        url = "https://{}/stories/s/{}".format(domain, fxf)
+    else:
+        url = "https://{}/d/{}".format(domain, fxf)
+
+    return url
+
 
 if __name__ == "__main__":
     import argparse
-    from download_crowdflower import get_judgments
 
     parser = argparse.ArgumentParser(
         description='Gather data from CrowdFlower judgments to server as '
         'the basis for error analysis')
 
-    parser.add_argument('job_id', type=int)
+    parser.add_argument('group_id', type=int,
+                        help="The group whose judgments are the basis for analysis")
     parser.add_argument('-o', '--outfile', dest='outfile', type=str, required=True,
                         help='Name of CSV file to which data will be written.')
+    parser.add_argument('-D', '--db_conn_str', required=True, help='Database connection string')
+    parser.add_argument('--prod_db_conn_str', help='Optional connection string for prod DB')
 
     args = parser.parse_args()
 
-    job_id = args.job_id
-    judgments = get_judgments(int(job_id))
-    columns = ["query", "name", "link", "error_type", "num_bad_judgments"]
+    print "Reading metadata from prod. RDS"
 
-    irrelevant_df = pd.DataFrame.from_records(
-        get_irrelevant_qrps(judgments), columns=columns)
+    fxf_metadata_dict = get_fxf_metadata_mapping(
+        psycopg2.connect(args.prod_db_conn_str or args.db_conn_str))
 
-    missing_info_df = pd.DataFrame.from_records(
-        get_missing_info_qrps(judgments), columns=columns)
+    db_conn = psycopg2.connect(args.db_conn_str)
 
-    errors_df = irrelevant_df.append(missing_info_df)
-    errors_df["num_bad_judgments"] = errors_df["num_bad_judgments"].astype(int)
-    errors_df = errors_df.groupby(("query", "name")).agg(lambda x: x.iloc[0])
-    errors_df = errors_df.sort("num_bad_judgments", ascending=0)
+    print "Reading all judged data for group"
+
+    data_df = pd.read_sql(
+        group_queries_and_judgments_query(db_conn, args.group_id, "domain_catalog"),
+        db_conn)
+
+    print "Counting irrelevants"
+
+    data_df["num_irrelevants"] = data_df["raw_judgments"].apply(
+        lambda js: sum([1 for j in js if j["judgment"] < 1]))
+
+    data_df = data_df[data_df["num_irrelevants"] >= 2]
+
+    print "Adding metadata to dataframe"
+
+    data_df["metadata"] = data_df["result_fxf"].apply(
+        lambda fxf: fxf_metadata_dict.get(fxf, {}))
+
+    print "Extracting dataset names"
+
+    data_df["name"] = data_df["metadata"].apply(
+        lambda metadata: metadata.get("name"))
+
+    print "Extracting and cleaning descriptions"
+
+    data_df["description"] = data_df["metadata"].apply(
+        lambda metadata: cleanup_description(metadata.get("description", "").decode("utf-8")))
+
+    print "Extracting URLs"
+
+    data_df["url"] = data_df.apply(
+        lambda row: get_dataset_url(
+            row["metadata"].get("domain_cname"),
+            row["result_fxf"],
+            row["metadata"].get("datatype")), axis=1)
+
+    data_df.sort_values("judgment", inplace=True)
 
     outfile = args.outfile or "errors.csv"
-    errors_df.to_csv(outfile, encoding="utf-8", cols=columns)
+
+    data_df.to_csv(outfile, encoding="utf-8", index=False, columns=OUTPUT_COLUMNS)

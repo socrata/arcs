@@ -291,11 +291,29 @@ def add_judgments_for_qrps(db_conn, data):
         db_conn (psycopg2.extensions.connection): Connection to a database
         data (iterable): An iterable of dicts
     """
-    query = "UPDATE arcs_query_result SET judgment=%s, is_gold=%s WHERE query=%s AND result_fxf=%s"
+    get_previous_judgments = "SELECT COALESCE(raw_judgments, '[]') FROM arcs_query_result " \
+                             "WHERE query=%s AND result_fxf=%s"
+
+    update = "UPDATE arcs_query_result SET judgment=%s, is_gold=%s, raw_judgments=%s " \
+             "WHERE query=%s AND result_fxf=%s"
 
     for row in data:
+        query = row["query"]
+        result_fxf = row["result_fxf"]
+        raw_judgments = row["raw_judgments"]
+
         with db_conn.cursor() as cur:
-            cur.execute(query, (row["judgment"], row["_golden"], row["query"], row["result_fxf"]))
+            cur.execute(get_previous_judgments, (query, result_fxf))
+            result = cur.fetchone()
+
+            if not result:
+                logging.warn(
+                    "Missing entry in arcs_query_result for ({}, {})".format(query, result_fxf))
+            else:
+                raw_judgments.extend(result[0])
+
+            cur.execute(update, (row["judgment"], row["_golden"],
+                                 raw_judgments, query, result_fxf))
 
 
 def query_ideals_query():
@@ -328,7 +346,8 @@ def group_queries_and_judgments_query(db_conn, group_id, group_type):
     Returns:
         A SQL query string
     """
-    selects = ["aq.query", "result_fxf", "result_position", "judgment"]
+    selects = ["aq.query", "result_fxf", "result_position", "judgment",
+               "COALESCE(raw_judgments, '[]') AS raw_judgments"]
 
     if group_type == 'domain_catalog':
         selects.append("domain")
@@ -369,3 +388,25 @@ def group_name(db_conn, group_id):
             return result[0]
         else:
             raise NoSuchGroup.with_id(group_id)
+
+
+def get_raw_results_for_job(db_conn, external_job_id):
+    """
+    Get the raw job results using the external job identifier.
+
+    Args:
+        db_conn (psycopg2.extensions.connection): Connection to a database
+        external_job_id (str): The external identifier for the job
+
+    Returns:
+        A dictionary of results data
+    """
+    query = "SELECT results FROM arcs_job WHERE external_id=%s"
+
+    with db_conn.cursor() as cur:
+        cur.execute(query, (external_job_id,))
+        result = cur.fetchone()
+        if result:
+            return result[0]
+        else:
+            raise NoSuchJob.with_external_id(external_job_id)

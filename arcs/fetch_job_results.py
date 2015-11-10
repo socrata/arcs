@@ -51,7 +51,6 @@ def get_job_data(crowdsource_platform, external_job_id, api_key=None):
         job_completed_at (datetime or None): time of job completion, if completed, else None
         data (list): list of dicts of (query, result_fxf, judgment)
         full_json (dict): the full return content from crowdflower, keyed by line number
-
     """
     logging.info("Gathering data and metadata from {}".format(crowdsource_platform))
 
