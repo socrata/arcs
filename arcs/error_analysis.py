@@ -3,6 +3,9 @@ import pandas as pd
 from launch_job import cleanup_description
 from db import group_queries_and_judgments_query
 
+# NB: this code was pulled from es_load.py (in cetera-etl) and is subject to change. Ideally, we
+# would have a shared module for these types of data contracts. But things have been changing
+# quickly. Let's revisit when ETL is more stable.
 DATATYPE_MAPPING = {
     "datasets": ("dataset", ""),
     "datalenses": ("datalens", ""),

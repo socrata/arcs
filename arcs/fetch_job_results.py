@@ -3,7 +3,6 @@ import logging
 import os
 import psycopg2
 import psycopg2.extras
-import sys
 from db import update_completed_job, add_judgments_for_qrps
 from crowdflower import get_job_metadata, get_job_results
 
@@ -62,7 +61,7 @@ def get_job_data(crowdsource_platform, external_job_id, api_key=None):
         logging.error('Unexpected crowdsource_platform {}, \
         must be one of {}'.format(crowdsource_platform,
                                   ALLOWED_CROWDSOURCE_PLATFORMS))
-        sys.exit(1)
+        raise ValueError("Unexpected crowdsource_platform={}".format(crowdsource_platform))
 
     return metadata, job_created_at, job_completed_at, data, full_json
 
