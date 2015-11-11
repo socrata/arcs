@@ -108,16 +108,14 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--outfile', dest='outfile', type=str, required=True,
                         help='Name of CSV file to which data will be written.')
     parser.add_argument('-D', '--db_conn_str', required=True, help='Database connection string')
-    parser.add_argument('--prod_db_conn_str', help='Optional connection string for prod DB')
 
     args = parser.parse_args()
 
-    print "Reading metadata from prod. RDS"
-
-    fxf_metadata_dict = get_fxf_metadata_mapping(
-        psycopg2.connect(args.prod_db_conn_str or args.db_conn_str))
-
     db_conn = psycopg2.connect(args.db_conn_str)
+
+    print "Reading metadata"
+
+    fxf_metadata_dict = get_fxf_metadata_mapping(db_conn)
 
     print "Reading all judged data for group"
 

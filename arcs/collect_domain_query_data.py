@@ -48,7 +48,7 @@ def get_public_domains(db_conn):
     Determine public domains from metadb.
 
     Args:
-        db_conn (psycopg2.extensions.connection): Connection to a database: A DB connection string
+        db_conn (psycopg2.extensions.connection): Connection to a database
 
     Returns:
         A 2-column Pandas DataFrame with domain_id and domain_cname
@@ -174,7 +174,7 @@ def get_domain_query_sample_from_logs(db_conn, query_logs_json, num_domains,
     are normalized and filtered to remove garbage queries.
 
     Args:
-        db_conn (psycopg2.extensions.connection): Connection to a database: A DB connection string
+        db_conn (psycopg2.extensions.connection): Connection to a database
         query_logs_json (str): A path to a query log JSON file (the output of logparse.py)
         num_domains (int): The number of domains to sample
         queries_per_domain (int): The number of queries to sample per domain

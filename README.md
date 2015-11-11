@@ -20,6 +20,42 @@ First, create a new virtual environment for Arcs, activate it, and then:
 pip install -e .
 ```
 
+## Creating the database
+
+Arcs requires the existence of a PostgreSQL database for persisting all of the
+relevance judgments and associated task data. If you're on a Mac,
+[homebrew](http://brew.sh/) is the recommended package manager. With homebrew,
+you can install postgres like so:
+
+```sh
+brew install postgresql
+```
+
+If you're on linux, try the following:
+
+```sh
+sudo apt-get install postgresql
+```
+
+Once you have postgres installed and running, create the arcs database and
+required tables like so:
+
+```sh
+createdb <dbname>
+psql -U <username> -d <dbname> -f arcs/sql/create_arcs_tables.sql 
+```
+
+From now on, any references to a "DB connection string" are referring to
+[libpq database connection string](http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING),
+which should look something like this:
+
+```sh
+postgresql://username:@hostname:port/db_name
+```
+
+The `username`, `hostname`, `port`, and `db_name` parameters should be replaced
+with the appropriate values.
+
 ## Running tests
 
 From the Arcs virtual environment created above, do the following:
@@ -203,12 +239,14 @@ something went wrong and prevented the workers from assigning a judgment
 score. You can achieve this with the following:
 
 ```bash
-python arcs/error_analysis.py <job_id> -o 20150806.errors.csv
+python arcs/error_analysis.py 28 -D 'postgresql://username:@hostname:5432/db_name' -o 20151110.errors.csv
 ```
 
-Note that this command requires that a valid job identifier be passed as the
-first argument. This will save a CSV to the path specified by the -o
-parameter. The rows will be sorted by the number of bad judgments.
+This script will output a list of all the QRPs that were assigned at least 2
+"irrelevant" judgments. The results will be sorted based on aggregated
+judgment. The first argument is the ID of the group to use as the basis for
+analysis and is required. As is the case with other utilities, a DB connection
+string is required and is specified with the -D flag.
 
 ## References
 
