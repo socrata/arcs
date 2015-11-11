@@ -460,7 +460,7 @@ def main():
     groups = [insert_empty_group(db_conn, group) for group in groups]
 
     raw_results_df, expanded_results_df = collect_search_results(
-        db_conn, groups, args.input_file, args.num_results,
+        groups, args.input_file, args.num_results,
         args.full_csv_file, args.cetera_host, args.cetera_port)
 
     job = submit_job(

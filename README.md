@@ -20,6 +20,42 @@ First, create a new virtual environment for Arcs, activate it, and then:
 pip install -e .
 ```
 
+## Creating the database
+
+Arcs requires the existence of a PostgreSQL database for persisting all of the
+relevance judgments and associated task data. If you're on a Mac,
+[homebrew](http://brew.sh/) is the recommended package manager. With homebrew,
+you can install postgres like so:
+
+```sh
+brew install postgresql
+```
+
+If you're on linux, try the following:
+
+```sh
+sudo apt-get install postgresql
+```
+
+Once you have postgres installed and running, create the arcs database and
+required tables like so:
+
+```sh
+createdb <dbname>
+psql -U <username> -d <dbname> -f arcs/sql/create_arcs_tables.sql 
+```
+
+From now on, any references to a "DB connection string" are referring to
+[libpq database connection string](http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-CONNSTRING),
+which should look something like this:
+
+```sh
+postgresql://username:@hostname:port/db_name
+```
+
+The `username`, `hostname`, `port`, and `db_name` parameters should be replaced
+with the appropriate values.
+
 ## Running tests
 
 From the Arcs virtual environment created above, do the following:
