@@ -309,7 +309,7 @@ def add_judgments_for_qrps(db_conn, data):
         db_conn (psycopg2.extensions.connection): Connection to a database
         data (iterable): An iterable of dicts
     """
-    get_previous_judgments = "SELECT COALESCE(raw_judgments, '[]') FROM arcs_query_result " \
+    get_previous_judgments = "SELECT COALESCE(raw_judgments, '[]'::json) FROM arcs_query_result " \
                              "WHERE query=%s AND result_fxf=%s"
 
     update = "UPDATE arcs_query_result SET judgment=%s, is_gold=%s, raw_judgments=%s " \
@@ -331,7 +331,7 @@ def add_judgments_for_qrps(db_conn, data):
                 raw_judgments.extend(result[0])
 
             cur.execute(update, (row["judgment"], row["_golden"],
-                                 raw_judgments, query, result_fxf))
+                                 simplejson.dumps(raw_judgments), query, result_fxf))
 
 
 def query_ideals_query():
