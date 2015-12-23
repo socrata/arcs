@@ -55,7 +55,7 @@ def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
     params = frozendict(cetera_params)
 
     def _get_result_list(domain, query):
-        r = requests.get(url, params=params.copy(domains=domain, q=query))
+        r = requests.get(url, params=params.copy(search_context=domain, domains=domain, q=query))
         return [res for res in list(enumerate(r.json().get("results")))
                 if lang_filter(res[1]['resource'].get('description'))][:num_results]
 
@@ -173,6 +173,7 @@ def get_domain_image(domain):
 
         if not (url.startswith("http") or url.startswith("https")):
             url = "http://{0}{1}".format(domain, url)
+
         return url
 
     except IndexError as e:
