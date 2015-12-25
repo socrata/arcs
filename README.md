@@ -61,7 +61,8 @@ with the appropriate values.
 From the Arcs virtual environment created above, do the following:
 
 ```bash
-python setup.py test
+pip install pytest
+py.test
 ```
 
 ## Parsing server logs for query data
