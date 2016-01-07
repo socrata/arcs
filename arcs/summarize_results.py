@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 import psycopg2
 import simplejson
@@ -54,14 +55,18 @@ def per_query_ndcg(data, ideals, ndcg_at):
 
     ideals = ideals.rename(columns={"judgments": "ideals"}, inplace=False)
     data = data.merge(ideals, on=["query", "domain"])
-    grouped = data.groupby(["query", "domain"], as_index=False)
 
-    dcgs_df = pd.DataFrame({"query": grouped.first()["query"],
-                            "domain": grouped.first()["domain"],
-                            "dcg": grouped.apply(query_dcg).reset_index()[0],
-                            "ndcg": grouped.apply(query_ndcg).reset_index()[0]})
+    if len(data) > 0:
+        grouped = data.groupby(["query", "domain"], as_index=False)
 
-    return dcgs_df
+        dcgs_df = pd.DataFrame({"query": grouped.first()["query"],
+                                "domain": grouped.first()["domain"],
+                                "dcg": grouped.apply(query_dcg).reset_index()[0],
+                                "ndcg": grouped.apply(query_ndcg).reset_index()[0]})
+
+        return dcgs_df
+    else:
+        logging.warn("There were no queries with results in the current group")
 
 
 def find_oddballs(judged_data):
@@ -117,7 +122,8 @@ def precision(judged_data):
     # filter out QRPs with "something went wrong" judgments
     judged_group_df = judged_data[judged_data["judgment"] >= 0]
 
-    return len(judged_data[judged_data["judgment"] >= 1]) / float(len(judged_data))
+    return (len(judged_data[judged_data["judgment"] >= 1]) /
+            float(len(judged_data))) if len(judged_data) else 1.0
 
 
 def stats(judged_data, ideals):
@@ -153,8 +159,8 @@ def stats(judged_data, ideals):
     # compute NDCG for each query
     ndcgs_at_5 = group_ndcgs(judged_data, ideals, 5)
     ndcgs_at_10 = group_ndcgs(judged_data, ideals, 10)
-    mean_ndcg_at_5 = ndcgs_at_5["ndcg"].mean()
-    mean_ndcg_at_10 = ndcgs_at_10["ndcg"].mean()
+    mean_ndcg_at_5 = ndcgs_at_5["ndcg"].mean() if ndcgs_at_5 is not None else 0.0
+    mean_ndcg_at_10 = ndcgs_at_10["ndcg"].mean() if ndcgs_at_10 is not None else 0.0
 
     return {
         "num_queries": num_queries,

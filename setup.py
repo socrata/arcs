@@ -19,10 +19,8 @@ install_requires_list = ['pandas==0.17.0',
                          'langdetect==1.0.5',
                          'crowdflower==0.1.3',
                          'scipy==0.16.0',
-                         'spacy==0.95']
+                         'spacy==0.99']
 
-
-tests_require = ["pytest==2.6.4"]
 
 
 class PyTest(TestCommand):
@@ -65,5 +63,6 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     install_requires=install_requires_list,
-    tests_require=tests_require,
+    setup_requires=['pytest-runner'],
+    tests_require=["pytest==2.6.4"],
     cmdclass={'test': PyTest})

@@ -126,7 +126,7 @@ if __name__ == "__main__":
     print "Counting irrelevants"
 
     data_df["num_irrelevants"] = data_df["raw_judgments"].apply(
-        lambda js: sum([1 for j in js if j["judgment"] < 1]))
+        lambda js: sum([1 for j in js if "judgment" in j and j["judgment"] < 1]))
 
     data_df = data_df[data_df["num_irrelevants"] >= 2]
 

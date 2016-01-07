@@ -364,7 +364,7 @@ def group_queries_and_judgments_query(db_conn, group_id, group_type):
     Returns:
         A SQL query string
     """
-    selects = ["aq.query", "result_fxf", "result_position", "judgment",
+    selects = ["arcs_query.query", "result_fxf", "result_position", "judgment",
                "COALESCE(raw_judgments, '[]') AS raw_judgments"]
 
     if group_type == 'domain_catalog':
@@ -372,13 +372,15 @@ def group_queries_and_judgments_query(db_conn, group_id, group_type):
 
     select_str = ', '.join(selects)
 
-    # TODO: the use of aliases qj and gj makes this pretty hard to read; fix!
-    query = "SELECT {} FROM arcs_query AS aq LEFT JOIN arcs_query_group_join AS qj " \
-            "ON aq.id=qj.query_id " \
-            "LEFT JOIN (SELECT * FROM arcs_query_result AS qr " \
-            "LEFT JOIN arcs_group_join AS gj ON gj.query_result_id=qr.id WHERE gj.group_id=%s) " \
-            "AS gj ON aq.id=gj.query_id " \
-            "WHERE qj.group_id=%s ORDER BY query, result_position".format(select_str)
+    query = """SELECT {} FROM arcs_query_group_join
+               LEFT JOIN arcs_query ON arcs_query.id=arcs_query_group_join.query_id
+               LEFT JOIN (
+                   SELECT * FROM arcs_query_result
+                   LEFT JOIN arcs_group_join ON arcs_group_join.query_result_id=arcs_query_result.id
+                   WHERE arcs_group_join.group_id={}
+               ) AS qr ON arcs_query.id=qr.query_id
+               WHERE arcs_query_group_join.group_id={}
+               ORDER BY query, result_position""".format(select_str, group_id, group_id)
 
     with db_conn.cursor() as cur:
         query = cur.mogrify(query, (group_id, group_id))
