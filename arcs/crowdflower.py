@@ -48,7 +48,7 @@ def create_job_from_copy(api_key=None, job_id=None):
     Returns:
         A new Arcs Job
     """
-    job_id = job_id or 788107
+    job_id = job_id or 844991
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
     url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(job_id, api_key)
     r = requests.get(url, headers=headers)

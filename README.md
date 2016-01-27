@@ -113,7 +113,7 @@ containing a whitespace character that is non-initial and non-terminal.
 
 The CrowdFlower UI is pretty self-explanatory. Creating new jobs can be done
 from the UI by clicking on an existing job, and electing to copy that job with
-*gold units* only. As a general rule, the number of gold units should probably
+*gold units* only. As a rule of thumb, the number of gold units should probably
 be greater than or equal to 10% of the total number of rows in a
 job. Additionally, it's a good idea to add to this set regularly to ensure that
 workers are not being exposed to the same questions over and over again.
@@ -189,28 +189,28 @@ something like this:
 
 ```json
 {
-    "num_unique_qrps": 569,
-    "num_total_diffs": 480,
-    "Including both min_should_match and title boosting": {
-        "avg_ndcg_at_5": 0.6562898326463115,
-        "num_zero_result_queries": 97,
-        "num_queries": 139,
-        "num_irrelevant": 188,
-        "avg_ndcg_at_10": 0.6689914334597877,
-        "precision": 0.7545454545454545,
-        "unjudged_qrps": 1,
-        "ndcg_error": 0.34371016735368853
+    "num_unique_qrps": 603,
+    "num_total_diffs": 563,
+    "baseline 51": {
+        "avg_ndcg_at_5": 0.6521285003925053,
+        "num_zero_result_queries": 76,
+        "num_queries": 236,
+        "num_irrelevant": 241,
+        "avg_ndcg_at_10": 0.6763264747737386,
+        "precision": 0.7897923875432526,
+        "unjudged_qrps": 2,
+        "ndcg_error": 0.34787149960749475
     },
-    "ndcg_delta": 0.03646560858737047,
-    "basline": {
-        "avg_ndcg_at_5": 0.619824224058941,
-        "num_zero_result_queries": 63,
-        "num_queries": 173,
-        "num_irrelevant": 451,
-        "avg_ndcg_at_10": 0.6506475987305224,
-        "precision": 0.6359967715899919,
+    "ndcg_delta": 0.03033746690757866,
+    "adjusted boost clause 52": {
+        "avg_ndcg_at_5": 0.6824659673000839,
+        "num_zero_result_queries": 76,
+        "num_queries": 236,
+        "num_irrelevant": 234,
+        "avg_ndcg_at_10": 0.6967757671474697,
+        "precision": 0.796875,
         "unjudged_qrps": 0,
-        "ndcg_error": 0.380175775941059
+        "ndcg_error": 0.3175340326999161
     }
 }
 ```
