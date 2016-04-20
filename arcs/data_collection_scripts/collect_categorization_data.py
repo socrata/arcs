@@ -248,6 +248,9 @@ if __name__ == '__main__':
     if not args.domains:
         args.domains = gather_domains(args.num_records, args.num_per_domain)
 
+    if not args.output_file:
+        args.output_file = datetime.now().strftime('%Y-%m-%d.%H:%M.csv')
+
     print args.domains
 
     gather_records(args.num_records, args.domains, args.num_per_domain, args.num_rows,
