@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <div>
+    <img src="{{logo_url}}" class="img-polaroid"/>
+    <strong>{{name}}</strong>
+    <hr />
+    <p>{{description}}</p>
+    <br />
+    {{columns}}
+  </div>
+
+  <div>
+    <cml:select name="category" label="Choose the best category for this data:" validates="required" aggregation="agg" gold="true">
+      <cml:option label="Economy" value="economy"/>
+      <cml:option label="Finance" value="finance"/>
+      <cml:option label="Education" value="education"/>
+      <cml:option label="Demographics" value="demographics"/>
+      <cml:option label="Health" value="health"/>
+      <cml:option label="Public Safety" value="public_safety"/>
+      <cml:option label="Environment" value="environment"/>
+      <cml:option label="Housing & Development" value="housing_development"/>
+      <cml:option label="Infrastructure" value="infrastructure"/>
+      <cml:option label="Politics" value="politics"/>
+      <cml:option label="Recreation" value="recreation"/>
+      <cml:option label="Social Services" value="social_services"/>
+      <cml:option label="Transportation" value="transportation"/>
+    </cml:select>
+
+    <cml:group only-if="category">
+      <div class="well">
+        <p class="text-info">Thank you for your selection. You can change your answer above if you'd like to re-consider.
+          <br>
+          Otherwise, please go on to the next unit.
+        </p>
+      </div>
+    </cml:group>
+  </div>
+</html>

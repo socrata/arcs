@@ -1,0 +1,38 @@
+Help us categorize our data!
+
+Overview
+
+Given a name, a description, and a sample of the dataset, choose the best category from a drop-down list. More than one answer may be correct, but try to choose the most relevant category.
+
+We Provide
+
+Logo of organization providing data
+Dataset Name
+Dataset Description
+Data sample
+
+Choose one of the 13 categories we provide on the right:
+Economy
+Finance
+Education
+Demographics
+Health
+Public Safety
+Environment
+Housing & Development
+Infrastructure
+Politics
+Recreation
+Social Services
+Transportation
+
+Tips and Examples
+
+Economy - GDP, distribution of wealth
+Finance - city budget, monetary transactions for a given time period
+Education - test scores, locations of schools, number of children in schools
+Demographics - TODO!
+
+Thank You!
+
+Your answers will help us open up data and make it discoverable to citizens like you. We appreciate your work on this task!
