@@ -215,7 +215,7 @@ def gather_records(num_records, domains, num_per_domain, num_rows, num_columns, 
 
         domain_datasets = []
 
-        while len(domain_datasets) < num_per_domain:
+        while len(domain_datasets) < num_per_domain and datasets:
             dataset = datasets.pop()
             resource = dataset.get('resource')
             if resource.get('type') != 'dataset':
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     if not args.domains:
         args.domains = gather_domains(args.num_records, args.num_per_domain)
 
-
+    print args.domains
 
     gather_records(args.num_records, args.domains, args.num_per_domain, args.num_rows,
                    args.num_columns, args.output_file)
