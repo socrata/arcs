@@ -1,9 +1,13 @@
+import json
 import re
 import csv
 import random
 import requests
 from argparse import ArgumentParser
 from datetime import datetime
+import sys
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 
 class ArgHandler(ArgumentParser):
@@ -38,6 +42,19 @@ class ArgHandler(ArgumentParser):
         self.add_argument('-o', '--output_file',
                           help='Output file to write records to, defaults '
                           'to a datestamped file in CWD')
+
+
+def filter_domains(domains):
+    valid_domains = []
+
+    for d in domains:
+        try:
+            requests.get('http://{}/api/configurations.json'.format(d))
+            valid_domains.append(d)
+        except:
+            pass
+
+    return valid_domains
 
 
 def gather_domains(num_records, num_per_domain):
@@ -77,19 +94,62 @@ def gather_columns_types(domain, fxf, num_columns):
     return columns_types
 
 
+def stringify(s):
+    if isinstance(s, list):
+        if isinstance(s[0], dict):
+            # attempt something?
+            vals = [entry.values() for entry in s]
+            flattened = [str(item) for sublist in vals for item in sublist]
+            s = ', '.join(flattened)
+        else:
+            non_null_fields = [str(f) for f in s if f]
+            s = ', '.join(non_null_fields)
+    else:
+        s = str(s)
+
+    return s
+
+
+def extract_address(s):
+    if isinstance(s[0], basestring) and s[0][0] == '{':
+        ad = json.loads(s[0])
+        fields = [ad.get('address'), ad.get('city'), ad.get('state'), ad.get('zip')]
+        non_null_fields = [str(f) for f in fields if f]
+        s = ', '.join(non_null_fields)
+    else:
+        s = '{}, {}'.format(s[1], s[2])
+
+    return s
+
+
+def replace_unicode_crap(s):
+    # sometimes it's not worth it to backtrack...
+    unicodey = r'\\x[abcdef0-9]'
+
+    return re.sub(unicodey, '-', s)
+
+
 def convert_row(columns_types, row):
     row_types = zip(columns_types, row)
 
     row_converted = []
 
     for (name, datatype), contents in row_types:
-        if 'date' in datatype:
-            contents = datetime.fromtimestamp(contents).strftime('%Y-%m-%d')
-        elif 'money' in datatype:
-            # EVERYBODY IS IN AMERICA RIGHT
-            contents = '${}'.format(contents)
+        if not contents:
+            contents = " "
         else:
-            contents = str(contents)
+            if 'date' in datatype and str(contents).isdigit():
+                contents = datetime.fromtimestamp(int(contents)).strftime('%Y-%m-%d')
+            elif 'money' in datatype:
+                # EVERYBODY IS IN AMERICA RIGHT
+                contents = '${}'.format(contents)
+            elif 'location' in datatype:
+                contents = extract_address(contents)
+            else:
+                contents = stringify(contents)
+
+        contents = replace_unicode_crap(contents)
+
         row_converted.append(contents)
 
     return row_converted
@@ -107,6 +167,10 @@ def gather_rows(domain, fxf, columns_types, num_rows, num_columns):
         if not rowdata:
             continue
 
+        rowdata = rowdata[0]
+        if not rowdata:
+            continue
+
         # the first 8 fields are metadata
         rowdata = rowdata[8:]
         rowdata = rowdata[:num_columns]
@@ -119,8 +183,8 @@ def gather_rows(domain, fxf, columns_types, num_rows, num_columns):
 
 
 def convert_to_table(header, rows):
-    header_html = '<th>{}</th>'.format('</th><th>'.join(header))
-    rows_html = ['<td>{}</td>'.format('</td><td>'.join(row)) for row in rows]
+    header_html = '<tr><th>{}</th></tr>'.format('</th><th>'.join(header))
+    rows_html = ['<tr><td>{}</td></tr>'.format('</td><td>'.join(row)) for row in rows]
 
     table = '<table>{header}\n{rows}</table>'.format(header=header_html,
                                                      rows='\n'.join(rows_html))
@@ -137,72 +201,17 @@ def write_csv(header, records, output_file):
             writer.writerow(row)
 
 
-_LOGO_UID_RE = re.compile(r"^[A-Z0-9]{8}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{12}$")
-
-
-def get_domain_image(domain):
-    """
-    Get the site logo for the specified domain.
-
-    Args:
-        domain (str): The domain cname
-
-    Returns:
-        A URL to the domain's logo
-    """
-    url = 'http://{0}/api/configurations.json'.format(domain)
-
-    params = {'type': 'site_theme',
-              'defaultOnly': True,
-              'merge': True}
-
-    response = None
-
-    try:
-        response = requests.get(url, params=params, timeout=(5, 10))
-        response.encoding = 'utf-8'
-        response.raise_for_status()
-
-        data = next((x for x in response.json()[0]["properties"]
-                     if "name" in x and x["name"] == "theme_v2b"))
-
-        url = data.get("value", {}).get("images", {}).get("logo_header", {}) \
-                                                     .get("href")
-
-        if url and _LOGO_UID_RE.match(url):
-            url = "/api/assets/{0}".format(url)
-
-        if not (url.startswith("http") or url.startswith("https")):
-            url = "http://{0}{1}".format(domain, url)
-
-        return url
-
-    except IndexError as e:
-        print "Unexpected result shape: zero elements in response JSON"
-        print "Response: {}".format(response.content if response else None)
-        print "Exception: {}".format(e.message)
-    except StopIteration as e:
-        print "Unable to find image properties in response JSON"
-        print "Response: {}".format(response.content if response else None)
-        print "Exception: {}".format(e.message)
-    except Exception as e:
-        print "Failed to fetch configuration for %s" % domain
-        print "Response: %s" % response.content if response else None
-        print "Exception: %s" % e.message
-
-
 def gather_records(num_records, domains, num_per_domain, num_rows, num_columns, output_file):
     base_url = 'http://api.us.socrata.com/api/catalog?domains={}'
 
     gathered_records = []
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     output_header = ['gathered_on', 'domain', 'fxf', 'name', 'description',
-                     'logo_url', 'sample']
+                     'sample']
 
     while len(gathered_records) < num_records:
         domain = domains.pop()
-        print domain
-        logo_url = get_domain_image(domain)
+        print(domain)
 
         r = requests.get(base_url.format(domain))
         j = r.json()
@@ -221,9 +230,10 @@ def gather_records(num_records, domains, num_per_domain, num_rows, num_columns, 
             if resource.get('type') != 'dataset':
                 continue
 
-            name = resource.get('name')
+            name = replace_unicode_crap(resource.get('name'))
             fxf = resource.get('id')
-            description = resource.get('description')
+            description = replace_unicode_crap(
+                resource.get('description')).strip() or '[no description]'
 
             columns_types = gather_columns_types(domain, fxf, num_columns)
 
@@ -232,7 +242,7 @@ def gather_records(num_records, domains, num_per_domain, num_rows, num_columns, 
 
             table = convert_to_table(header, rows)
 
-            record = [timestamp, domain, fxf, name, description, logo_url, table]
+            record = [timestamp, domain, fxf, name, description, table]
             domain_datasets.append(record)
 
         gathered_records.extend(domain_datasets)
@@ -243,15 +253,17 @@ def gather_records(num_records, domains, num_per_domain, num_rows, num_columns, 
 if __name__ == '__main__':
     parser = ArgHandler()
     args = parser.parse_args()
-    print args
+    print(args)
 
     if not args.domains:
         args.domains = gather_domains(args.num_records, args.num_per_domain)
 
+    domains = filter_domains(args.domains)
+
     if not args.output_file:
         args.output_file = datetime.now().strftime('%Y-%m-%d.%H:%M.csv')
 
-    print args.domains
+    print(domains)
 
-    gather_records(args.num_records, args.domains, args.num_per_domain, args.num_rows,
+    gather_records(args.num_records, domains, args.num_per_domain, args.num_rows,
                    args.num_columns, args.output_file)

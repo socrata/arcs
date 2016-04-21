@@ -1,30 +1,30 @@
-<!DOCTYPE html>
-<html>
   <div>
-    <img src="{{logo_url}}" class="img-polaroid"/>
-    <strong>{{name}}</strong>
+    <h1>{{name}}</h1>
     <hr />
     <p>{{description}}</p>
+    <i><a href="http://{{domain}}/d/{{fxf}}">Link to data from {{domain}}</a></i>
     <br />
-    {{columns}}
+    <br />
+    <br />
+    {{sample}}
   </div>
-
+  <br />
   <div>
-    <cml:select name="category" label="Choose the best category for this data:" validates="required" aggregation="agg" gold="true">
-      <cml:option label="Economy" value="economy"/>
-      <cml:option label="Finance" value="finance"/>
-      <cml:option label="Education" value="education"/>
-      <cml:option label="Demographics" value="demographics"/>
-      <cml:option label="Health" value="health"/>
-      <cml:option label="Public Safety" value="public_safety"/>
-      <cml:option label="Environment" value="environment"/>
-      <cml:option label="Housing & Development" value="housing_development"/>
-      <cml:option label="Infrastructure" value="infrastructure"/>
-      <cml:option label="Politics" value="politics"/>
-      <cml:option label="Recreation" value="recreation"/>
-      <cml:option label="Social Services" value="social_services"/>
-      <cml:option label="Transportation" value="transportation"/>
-    </cml:select>
+    <cml:checkboxes name="category" label="Choose the best category for this data (more than one category may be valid):" validates="required" aggregation="agg" gold="true">
+      <cml:checkbox label="Economy" value="economy"/>
+      <cml:checkbox label="Finance" value="finance"/>
+      <cml:checkbox label="Education" value="education"/>
+      <cml:checkbox label="Demographics" value="demographics"/>
+      <cml:checkbox label="Health" value="health"/>
+      <cml:checkbox label="Public Safety" value="public_safety"/>
+      <cml:checkbox label="Environment" value="environment"/>
+      <cml:checkbox label="Housing &amp; Development" value="housing_development"/>
+      <cml:checkbox label="Infrastructure" value="infrastructure"/>
+      <cml:checkbox label="Politics" value="politics"/>
+      <cml:checkbox label="Recreation" value="recreation"/>
+      <cml:checkbox label="Social Services" value="social_services"/>
+      <cml:checkbox label="Transportation" value="transportation"/>
+    </cml:checkboxes>
 
     <cml:group only-if="category">
       <div class="well">
@@ -35,4 +35,3 @@
       </div>
     </cml:group>
   </div>
-</html>
