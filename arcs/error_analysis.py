@@ -113,39 +113,39 @@ if __name__ == "__main__":
 
     db_conn = psycopg2.connect(args.db_conn_str)
 
-    print "Reading metadata"
+    print("Reading metadata")
 
     fxf_metadata_dict = get_fxf_metadata_mapping(db_conn)
 
-    print "Reading all judged data for group"
+    print("Reading all judged data for group")
 
     data_df = pd.read_sql(
         group_queries_and_judgments_query(db_conn, args.group_id, "domain_catalog"),
         db_conn)
 
-    print "Counting irrelevants"
+    print("Counting irrelevants")
 
     data_df["num_irrelevants"] = data_df["raw_judgments"].apply(
         lambda js: sum([1 for j in js if "judgment" in j and j["judgment"] < 1]))
 
     data_df = data_df[data_df["num_irrelevants"] >= 2]
 
-    print "Adding metadata to dataframe"
+    print("Adding metadata to dataframe")
 
     data_df["metadata"] = data_df["result_fxf"].apply(
         lambda fxf: fxf_metadata_dict.get(fxf, {}))
 
-    print "Extracting dataset names"
+    print("Extracting dataset names")
 
     data_df["name"] = data_df["metadata"].apply(
         lambda metadata: metadata.get("name"))
 
-    print "Extracting and cleaning descriptions"
+    print("Extracting and cleaning descriptions")
 
     data_df["description"] = data_df["metadata"].apply(
         lambda metadata: cleanup_description(metadata.get("description", "").decode("utf-8")))
 
-    print "Extracting URLs"
+    print("Extracting URLs")
 
     data_df["url"] = data_df.apply(
         lambda row: get_dataset_url(

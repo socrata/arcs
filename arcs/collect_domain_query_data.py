@@ -263,7 +263,7 @@ if __name__ == "__main__":
         db_conn, args.query_logs_json, args.num_domains, args.queries_per_domain,
         query_blacklist_file=args.query_blacklist, query_filters=query_filters)
 
-    print "domain\tquery\tcount"
+    print("domain\tquery\tcount")
 
     for (domain, query, count) in domain_queries:
-        print "{}\t{}\t{}".format(domain, query.encode("utf-8"), count)
+        print("{}\t{}\t{}".format(domain, query.encode("utf-8"), count))

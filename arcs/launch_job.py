@@ -5,6 +5,9 @@ import requests
 import logging
 import re
 import psycopg2
+import simplejson as json
+from itertools import chain
+from requests import HTTPError
 from spacy.en import English, LOCAL_DATA_DIR
 from frozendict import frozendict
 from datetime import datetime
@@ -21,6 +24,10 @@ CORE_COLUMNS = ['domain', 'query', 'result_fxf', 'result_position', 'group_id', 
 DISPLAY_DATA = ['domain_logo_url', 'name', 'link', 'description']
 CSV_COLUMNS = CORE_COLUMNS + DISPLAY_DATA
 RAW_COLUMNS = ['domain', 'query', 'results', 'group_id']
+SOCRATA_APP_TOKEN = None
+
+logging.basicConfig(format='%(message)s', level=logging.INFO)
+LOGGER = logging.getLogger(__name__)
 
 
 def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
@@ -41,7 +48,7 @@ def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
     Returns:
         A list of (domain, query, result dict) triples
     """
-    logging.info("Getting search results from Cetera")
+    LOGGER.info("Getting search results from Cetera")
 
     # we can't use the port in this version
     if 'https://api.us.socrata.com/api/catalog' in cetera_host:
@@ -55,7 +62,12 @@ def get_cetera_results(domain_query_pairs, cetera_host, cetera_port,
     params = frozendict(cetera_params)
 
     def _get_result_list(domain, query):
-        r = requests.get(url, params=params.copy(search_context=domain, domains=domain, q=query))
+        if domain:
+            params_ = params.copy(search_context=domain, domains=domain, q=query)
+        else:
+            params_ = params.copy(q=query)
+
+        r = requests.get(url, params=params_)
         return [res for res in list(enumerate(r.json().get("results")))
                 if lang_filter(res[1]['resource'].get('description'))][:num_results]
 
@@ -95,7 +107,207 @@ def cleanup_description(desc):
     return _join_sentences("", desc_sentences, 400) if desc else desc
 
 
-def _transform_cetera_result(result, result_position, logos):
+def extract_address(cell_contents):
+    """
+    If the cell data is an address, extract the user-friendly bits of it.
+
+    Args:
+        cell_contents (Any): The contents of a cell
+
+    Returns:
+        A friendly address when one is extractable
+    """
+    LOGGER.debug("Extracting address from {}".format(cell_contents))
+
+    if "human_address" in cell_contents:
+        ad = json.loads(cell_contents["human_address"])
+        fields = [ad.get('address'), ad.get('city'), ad.get('state'), ad.get('zip')]
+        non_null_fields = [str(f) for f in fields if f]
+    elif "latitude" in cell_contents and "longitude" in cell_contents:
+        ad = (cell_contents.get("latitude"), cell_contents.get("longitude"))
+        if ad[0] and ad[1]:
+            non_null_fields = ["(" + ad[0], ad[1] + ")"]
+    else:
+        non_null_fields = []
+
+    s = ', '.join(non_null_fields)
+
+    return s
+
+
+def stringify(cell_contents):
+    """
+    Extract user-friendly strings from cell contents.
+
+    Args:
+        cell_contents (Any): The contents of a cell
+
+    Returns:
+        The cell contents as a string
+    """
+    def flatten(d, parent_key='', sep='_'):
+        items = []
+        for k, v in d.items():
+            new_key = parent_key + sep + k if parent_key else k
+            if isinstance(v, dict):
+                items.extend(flatten(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, v))
+        return dict(items)
+
+    def is_list_of_dicts(cell_contents):
+        return isinstance(cell_contents[0], dict)
+
+    def str_(v):
+        return ("%.2f" % v) if isinstance(v, float) else str(v)
+
+    if isinstance(cell_contents, list):
+        if is_list_of_dicts(cell_contents):
+            strs_to_join = chain.from_iterable([flatten(d).values() for d in cell_contents])
+        else:
+            strs_to_join = [str_(value) for value in cell_contents if value]
+
+        stringified = ', '.join(strs_to_join)
+    else:
+        stringified = str(cell_contents)
+
+    return stringified
+
+
+def _replace_hexadecimal_str(s):
+    """
+    Replace "\xe8"-type strings with a single hyphen.
+    """
+    unicodey = r'\\x[abcdef0-9]{2}'
+
+    return re.sub(unicodey, '-', s)
+
+
+def convert_row(column_name_type, row):
+    """
+    Make cell data more user friendly.
+
+    Args:
+        column_name_type (List[(str, str)]): A list of pairs of column names and types
+        row (dict): The row data as a dict
+
+    Returns:
+        A list containing row data transformed to be more user-friendly
+    """
+    row_converted = []
+
+    for column_name, column_type in column_name_type:
+        contents = row.get(column_name)
+        if not contents or not column_type:
+            contents = " "
+        else:
+            if 'date' in column_type and str(contents).isdigit():
+                contents = datetime.fromtimestamp(int(contents)).strftime('%Y-%m-%d')
+            elif 'money' in column_type:
+                # EVERYBODY IS IN AMERICA RIGHT
+                contents = '${}'.format(contents)
+            elif 'location' in column_type:
+                contents = extract_address(contents)
+            else:
+                contents = stringify(contents)
+
+        contents = _replace_hexadecimal_str(contents)
+
+        row_converted.append(contents)
+
+    return row_converted
+
+
+def gather_rows(domain, fxf, columns_names, columns_types, num_rows):
+    """
+    Gather some sample rows from this dataset to create a short snippet of a dataset.
+
+    Args:
+        domain (str): A domain cname
+        fxf (str): An identifier for a dataset
+        columns_names (List[str]): A list of column names
+        columns_types (List[str]): A list of column types
+        num_rows (int): The number of rows to gather
+
+    Returns:
+        A list of rows representing a sample of rows and columns from a selected dataset
+    """
+    headers = {"X-App-Token": SOCRATA_APP_TOKEN}
+
+    url = 'https://{}/resource/{}.json?$select={}&$limit={}'.format(
+        domain, fxf, ','.join(columns_names), num_rows)
+
+    def get_row_data():
+        response = requests.get(url, headers=headers)
+
+        try:
+            response.raise_for_status()
+        except HTTPError:
+            rowdata = []
+        else:
+            response_body = response.json()
+            rowdata = [x for x in response_body if x]
+
+        return rowdata
+
+    column_name_type = list(zip(columns_names, columns_types))
+    return [convert_row(column_name_type, row) for row in get_row_data()]
+
+
+def convert_to_table(header, rows, cell_padding=5):
+    """
+    Create an HTML table out of the sample data.
+
+    Args:
+        header (str): The table header
+        rows (List[str]): A list of rows as strings
+
+    Returns:
+        A dataset sample in the form of an HTML <table>
+    """
+    header_html = '<tr><th>{}</th></tr>'.format('</th><th>'.join(header))
+    rows_html = ['<tr><td>{}</td></tr>'.format('</td><td>'.join(row)) for row in rows]
+
+    if rows:
+        table = '<table cellpadding="{cellpadding}">{header}\n{rows}</table>'.format(
+            cellpadding=cell_padding, header=header_html, rows='\n'.join(rows_html))
+    else:
+        table = None
+
+    return table
+
+
+def gather_columns_types(domain, fxf):
+    """
+    Gather the column headers and their types
+
+    Args:
+        domain (str): A domain cname
+        fxf (str): An identifier for a dataset
+
+    Returns:
+        A list of pairs of containing a column name and a column type
+    """
+    url = 'http://{}/api/views/{}/columns.json'.format(domain, fxf)
+    response = requests.get(url)
+
+    try:
+        response.raise_for_status()
+    except HTTPError:
+        response_body = []
+    else:
+        response_body = response.json()
+
+        if isinstance(response_body, dict) and "error" in response_body:
+            response_body = []
+
+    def extract(column):
+        return (column.get("name"), column.get("fieldName"), column.get("dataTypeName"))
+
+    return [extract(column) for column in response_body]
+
+
+def _transform_cetera_result(result, result_position, num_columns):
     """
     Utility function for transforming Cetera result dictionary into something
     more suitable for the crowdsourcing task. Presently, we're grabbing name,
@@ -103,21 +315,29 @@ def _transform_cetera_result(result, result_position, logos):
     """
     desc = cleanup_description(result["resource"].get("description"))
     domain = result["metadata"]["domain"]
+    fxf = result["resource"].get("id")
+    columns_types = gather_columns_types(domain, fxf)[:num_columns]
+    header, columns_names, datatypes = zip(*columns_types) if columns_types else ([], [], [])
+    rows = gather_rows(domain_cname, fxf, columns_names, datatypes, num_rows)
+    table = convert_to_table(header, rows)
+    table = table if table and len(table) < CROWDFLOWER_MAX_ROW_LENGTH else None
+
 
     return {"result_position": result_position,
-            "result_fxf": result["resource"].get("id"),
+            "result_fxf": fxf,
             "name": result["resource"].get("name"),
             "link": result["link"],
             "description": desc,
-            "domain_logo_url": logos.get(domain),
+            "domain_logo_url": None,  # legacy field
+            "sample": generate_dataset_sample(),
             "_golden": False}  # we need this field to copy data from existing CrowdFlower job
 
 
-def raw_results_to_dataframe(group_results, group_id, logos):
+def raw_results_to_dataframe(group_results, group_id):
     """
     Add group ID to raw results tuple.
 
-    We keep raw results around for posterity
+    We keep raw results around for posterity.
 
     Args:
         group_results (iterable): An iterable of results tuples as returned by get_cetera_results
@@ -131,7 +351,7 @@ def raw_results_to_dataframe(group_results, group_id, logos):
         columns=RAW_COLUMNS)
 
     results["results"] = results["results"].apply(
-        lambda rs: [_transform_cetera_result(r[1], r[0], logos) for r in rs])
+        lambda rs: [_transform_cetera_result(r[1], r[0]) for r in rs])
 
     return results
 
@@ -177,17 +397,17 @@ def get_domain_image(domain):
         return url
 
     except IndexError as e:
-        print "Unexpected result shape: zero elements in response JSON"
-        print "Response: {}".format(response.content if response else None)
-        print "Exception: {}".format(e.message)
+        print("Unexpected result shape: zero elements in response JSON")
+        print("Response: {}".format(response.content if response else None))
+        print("Exception: {}".format(e.message))
     except StopIteration as e:
-        print "Unable to find image properties in response JSON"
-        print "Response: {}".format(response.content if response else None)
-        print "Exception: {}".format(e.message)
+        print("Unable to find image properties in response JSON")
+        print("Response: {}".format(response.content if response else None))
+        print("Exception: {}".format(e.message))
     except Exception as e:
-        print "Failed to fetch configuration for %s" % domain
-        print "Response: %s" % response.content if response else None
-        print "Exception: %s" % e.message
+        print("Failed to fetch configuration for %s" % domain)
+        print("Response: %s" % response.content if response else None)
+        print("Exception: %s" % e.message)
 
 
 def filter_previously_judged(db_conn, qrps_df):
@@ -239,8 +459,8 @@ def collect_search_results(groups, query_domain_file, num_results,
                            output_file=None, cetera_host=None, cetera_port=None):
     """
     Send queries included in `query_domain_file` to Cetera, collecting n=num_results results
-    for each query. For each domain, gather URLs to domain logos. Finally, bundle everything
-    up into a Pandas DataFrame. Write out full expanded results to a CSV.
+    for each query. Bundle everything up into a Pandas DataFrame. Write out full expanded results
+    to a CSV.
 
     Args:
         groups (iterable): An iterable of GroupDefinitions
@@ -256,16 +476,11 @@ def collect_search_results(groups, query_domain_file, num_results,
     """
     assert(num_results > 0)
 
-    logging.info("Reading query domain pairs from {}".format(query_domain_file))
+    LOGGER.info("Reading query domain pairs from {}".format(query_domain_file))
 
     with open(query_domain_file, "r") as f:
         next(f)
         domain_queries = [x.strip().split('\t')[:2] for x in f if x.strip()]
-
-    logging.info("Fetching domain logos")
-
-    domains = {x[0] for x in domain_queries}
-    logos = {domain: get_domain_image(domain) for domain in domains}
 
     raw_results_df = pd.DataFrame(columns=RAW_COLUMNS)
 
@@ -304,7 +519,7 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
     Returns:
         An Arcs Job with its external ID populated
     """
-    logging.info("Creating CrowdFlower job")
+    LOGGER.info("Creating CrowdFlower job")
 
     # create empty CrowdFlower job by copying test units from existing job
     job = create_job_from_copy(job_id=job_to_copy)
@@ -314,7 +529,7 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
     data_df = filter_previously_judged(db_conn, data_df)
     num_rows_post_filter = len(data_df)
 
-    logging.info("Eliminated {} rows that had been previously judged".format(
+    LOGGER.info("Eliminated {} rows that had been previously judged".format(
         num_rows_pre_filter - num_rows_post_filter))
 
     # multiple groups may in fact produce the same results, for any given query,
@@ -322,30 +537,30 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
     grouped = data_df.groupby(["query", "result_fxf"])
     data_df = grouped.first().reset_index()
 
-    logging.info("Eliminated {} redundant query-result rows".format(
+    LOGGER.info("Eliminated {} redundant query-result rows".format(
         num_rows_post_filter - len(data_df)))
 
     output_file = output_file or \
         "{}-crowdflower.csv".format(datetime.now().strftime("%Y%m%d"))
 
-    logging.info("Writing out {} rows as CSV to {}".format(len(data_df), output_file))
+    LOGGER.info("Writing out {} rows as CSV to {}".format(len(data_df), output_file))
 
     data_df.to_csv(output_file, encoding="utf-8",
                    index=False, escapechar="\\", na_rep=None)
 
-    logging.info("Adding data to job from CSV")
+    LOGGER.info("Adding data to job from CSV")
 
     try:
         add_data_to_job(job.external_id, output_file)
     except Exception as e:
-        logging.warn("Unable to send CSV to CrowdFlower: {}".format(e.message))
-        logging.warn("Try uploading the data manually using the web UI.")
+        LOGGER.warn("Unable to send CSV to CrowdFlower: {}".format(e.message))
+        LOGGER.warn("Try uploading the data manually using the web UI.")
 
-    logging.info("Job submitted.")
-    logging.info("Job consists of {} group(s): {}".format(
+    LOGGER.info("Job submitted.")
+    LOGGER.info("Job consists of {} group(s): {}".format(
         len(groups), '\n'.join([str(g) for g in groups])))
 
-    logging.info("https://make.crowdflower.com/jobs/{}".format(job.external_id))
+    LOGGER.info("https://make.crowdflower.com/jobs/{}".format(job.external_id))
 
     return job
 
@@ -374,7 +589,7 @@ def persist_job_data(db_conn, job, groups, raw_data_df):
     Returns:
         None
     """
-    logging.info("Writing incomplete job to DB")
+    LOGGER.info("Writing incomplete job to DB")
 
     job = insert_incomplete_job(db_conn, job)
 
@@ -382,7 +597,7 @@ def persist_job_data(db_conn, job, groups, raw_data_df):
     raw_data_df["payload"] = pd.Series(_df_data_to_records(raw_data_df[RAW_COLUMNS]))
 
     # write all QRPs to DB
-    logging.info("Writing query-result pairs to DB")
+    LOGGER.info("Writing query-result pairs to DB")
 
     for group in groups:
         # filter to just this group
@@ -473,5 +688,4 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
     main()

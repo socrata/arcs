@@ -37,7 +37,7 @@ def read_info(csv_file):
 
 def get_iaa(rows):
     missing = '*'  # indicator for missing values
-    print "IAA: %.3f" % krippendorff_alpha(info, preprocessed=True, metric=ordinal_metric, convert_items=int, missing_items=missing)
+    print("IAA: %.3f" % krippendorff_alpha(info, preprocessed=True, metric=ordinal_metric, convert_items=int, missing_items=missing))
 
 
 def arg_parser():

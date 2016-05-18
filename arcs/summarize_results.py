@@ -213,7 +213,7 @@ def main(db_conn_str, group_1_id, group_2_id):
     experiment_stats["num_unique_qrps"] = unique_qrps
     experiment_stats["ndcg_delta"] = (ndcgs[1] - ndcgs[0])
 
-    print simplejson.dumps(experiment_stats, indent=4 * ' ')
+    print(simplejson.dumps(experiment_stats, indent=4 * ' '))
 
 
 if __name__ == "__main__":

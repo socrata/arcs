@@ -125,7 +125,7 @@ def krippendorff_alpha(data, metric=interval_metric, preprocessed=False, force_v
     return 1. - Do/De
 
 if __name__ == '__main__':
-    print "Example from http://en.wikipedia.org/wiki/Krippendorff's_Alpha"
+    print("Example from http://en.wikipedia.org/wiki/Krippendorff's_Alpha")
 
     data = (
         "*    *    *    *    *    3    4    1    2    1    1    3    3    *    3",  # coder A
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     missing = '*'  # indicator for missing values
     array = [d.split() for d in data]  # convert to 2D list of string items
 
-    print "nominal metric: %.3f" % krippendorff_alpha(array, nominal_metric, missing_items=missing)
-    print "interval metric: %.3f" % krippendorff_alpha(array, interval_metric, missing_items=missing)
-    print "ratio metric: %.3f" % krippendorff_alpha(array, ratio_metric, missing_items=missing)
-    print "ordinal metric: %.3f" % krippendorff_alpha(array, metric=ordinal_metric, convert_items=intify_floats, missing_items=missing)
+    print("nominal metric: %.3f" % krippendorff_alpha(array, nominal_metric, missing_items=missing))
+    print("interval metric: %.3f" % krippendorff_alpha(array, interval_metric, missing_items=missing))
+    print("ratio metric: %.3f" % krippendorff_alpha(array, ratio_metric, missing_items=missing))
+    print("ordinal metric: %.3f" % krippendorff_alpha(array, metric=ordinal_metric, convert_items=intify_floats, missing_items=missing))
