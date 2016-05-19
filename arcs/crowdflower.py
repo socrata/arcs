@@ -5,10 +5,10 @@ import requests
 import simplejson
 import time
 import zipfile
-import StringIO
 from dateutil.parser import parse as dtparse
-from frozendict import frozendict
 from experiment import Job
+from frozendict import frozendict
+from io import StringIO
 
 
 FXF_RE = re.compile(r'[a-z0-9]{4}-[a-z0-9]{4}$')
@@ -46,11 +46,13 @@ def create_job_from_copy(api_key=None, job_id=None):
         job_id (int): The unique job identifier of the job to copy
 
     Returns:
-        A new Arcs Job
+        A new Job
     """
-    job_id = job_id or 844991
+    job_id = job_id or 911851
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
-    url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(job_id, api_key)
+    url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(
+        job_id, api_key)
+
     r = requests.get(url, headers=headers)
     r.raise_for_status()
     return job_from_dict(r.json())
@@ -66,7 +68,9 @@ def add_data_to_job(job_id, csv_file, api_key=None):
         api_key (str): API token (use "CROWDFLOWER_API_KEY" env variable if not specified)
     """
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
-    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json?key={}&force=true".format(job_id, api_key)
+    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json?key={}&force=true".format(
+        job_id, api_key)
+
     with open(csv_file) as f:
         r = requests.put(url, data=f, headers=headers.copy(**{"content-type": "text/csv"}))
     r.raise_for_status()
