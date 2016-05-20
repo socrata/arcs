@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -8,7 +9,6 @@ import zipfile
 from dateutil.parser import parse as dtparse
 from experiment import Job
 from frozendict import frozendict
-from io import StringIO
 
 
 FXF_RE = re.compile(r'[a-z0-9]{4}-[a-z0-9]{4}$')
@@ -162,7 +162,7 @@ def extract_json_from_csv(zip_data):
     full_json = {}
 
     for i, line in enumerate(zip_data):
-        unit = simplejson.loads(line)
+        unit = simplejson.loads(line.decode("utf-8"))
         full_json[i] = unit  # fix this
         data = unit.get('data')
         query = data.get('query')
@@ -210,7 +210,7 @@ def get_job_results(job_id, api_key=None):
             ret = requests.get(filled_get_url)
             # we are returning a bytestring that would be a zipfile, were it a file
             # containing a single file where each line is a json blob
-            zc = zipfile.ZipFile(StringIO.StringIO(ret.content))
+            zc = zipfile.ZipFile(io.BytesIO(ret.content))
             zip_data = zc.open(zc.namelist()[0])
             if zip_data:
                 break

@@ -12,6 +12,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # wrappers for them, and then add them to this list
 ALLOWED_CROWDSOURCE_PLATFORMS = frozenset(('crowdflower',))
 
+logging.basicConfig(format='%(message)s', level=logging.INFO)
+LOGGER = logging.getLogger(__name__)
+logging.getLogger("requests").setLevel(logging.WARNING)
+
 
 def create_tables(conn, sql_file=None):
     """
@@ -51,14 +55,14 @@ def get_job_data(crowdsource_platform, external_job_id, api_key=None):
         data (list): list of dicts of (query, result_fxf, judgment)
         full_json (dict): the full return content from crowdflower, keyed by line number
     """
-    logging.info("Gathering data and metadata from {}".format(crowdsource_platform))
+    LOGGER.info("Gathering data and metadata from {}".format(crowdsource_platform))
 
     if crowdsource_platform == 'crowdflower':
         api_key = api_key or os.environ['CROWDFLOWER_API_KEY']
         metadata, job_created_at, job_completed_at = get_job_metadata(external_job_id, api_key)
         data, full_json = get_job_results(external_job_id, api_key)
     else:
-        logging.error('Unexpected crowdsource_platform {}, \
+        LOGGER.error('Unexpected crowdsource_platform {}, \
         must be one of {}'.format(crowdsource_platform,
                                   ALLOWED_CROWDSOURCE_PLATFORMS))
         raise ValueError("Unexpected crowdsource_platform={}".format(crowdsource_platform))
@@ -103,7 +107,6 @@ def main(args):
 
 if __name__ == "__main__":
     psycopg2.extensions.register_adapter(dict, psycopg2.extras.Json)
-    logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser(description='Take data from a crowdsourcing platform '
                                      'and upload it to a postgres database')
