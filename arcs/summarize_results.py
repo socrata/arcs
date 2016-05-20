@@ -116,12 +116,6 @@ def precision(judged_data):
     Returns:
         A floating point value corresponding to the precision of the result set.
     """
-    # filter out un-judged queries
-    judged_group_df = judged_data[judged_data["judgment"].notnull()]
-
-    # filter out QRPs with "something went wrong" judgments
-    judged_group_df = judged_data[judged_data["judgment"] >= 0]
-
     return (len(judged_data[judged_data["judgment"] >= 1]) /
             float(len(judged_data))) if len(judged_data) else 1.0
 
