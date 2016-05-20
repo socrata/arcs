@@ -353,6 +353,16 @@ def parse_args():
                         help='Number of results per (domain, query) pair to fetch from cetera, \
                         default %(default)s')
 
+    parser.add_argument('--num_rows',
+                        help='Number of rows to limit the sample to, default %(default)s',
+                        type=int,
+                        default=5)
+
+    parser.add_argument('--num_columns',
+                        help='Number of columns to limit the sample to, default %(default)s',
+                        type=int,
+                        default=5)
+
     parser.add_argument('-c', '--cetera_host', dest='cetera_host',
                         default='https://api.us.socrata.com/api/catalog/v1',
                         help='Cetera hostname (eg. localhost) \
@@ -380,7 +390,7 @@ def main():
     groups = [insert_empty_group(db_conn, group) for group in groups]
 
     raw_results_df, expanded_results_df = collect_search_results(
-        groups, args.input_file, args.num_results,
+        groups, args.input_file, args.num_results, args.num_rows, args.num_columns,
         args.full_csv_file, args.cetera_host, args.cetera_port)
 
     job = submit_job(

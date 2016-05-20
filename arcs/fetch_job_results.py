@@ -87,7 +87,7 @@ def main(args):
     """
     - Create a connection to RDS
     - Download result data from {crowdsource_platform} given external job ID
-    - Insert results into various RDS tables
+    - Persist results
 
     Args:
         args (argparse.Namespace): input argument k:v pairs
