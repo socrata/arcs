@@ -267,7 +267,12 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
     try:
         add_data_to_job(job.external_id, output_file)
     except Exception as e:
-        LOGGER.warn("Unable to send CSV to CrowdFlower: {}".format(e.message))
+        if hasattr(e, "message"):
+            msg = "Unable to send CSV to CrowdFlower: {}".format(e.message)
+        else:
+            msg = "Unable to send CSV to CrowdFlower"
+
+        LOGGER.warn(msg)
         LOGGER.warn("Try uploading the data manually using the web UI.")
 
     LOGGER.info("Job submitted.")
@@ -363,13 +368,10 @@ def parse_args():
                         type=int,
                         default=5)
 
-    parser.add_argument('-c', '--cetera_host', dest='cetera_host',
-                        default='https://api.us.socrata.com/api/catalog/v1',
-                        help='Cetera hostname (eg. localhost) \
-                        default %(default)s')
+    parser.add_argument('-c', '--cetera_host',
+                        help='Cetera hostname (eg. localhost) default %(default)s')
 
-    parser.add_argument('-p', '--cetera_port', dest='cetera_port',
-                        default='80',
+    parser.add_argument('-p', '--cetera_port',
                         help='Cetera port, default %(default)s')
 
     parser.add_argument('-g', '--group', dest='groups', type=GroupDefinition.from_json,

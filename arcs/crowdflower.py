@@ -34,7 +34,8 @@ def job_from_dict(job_data):
 
     return Job(**data)
 
-headers = frozendict({'content-type': 'application/json', 'accept': 'application/json'})
+headers = frozendict({'content-type': 'application/json; charset=utf-8',
+                      'accept': 'application/json; charset=utf-8'})
 
 
 def create_job_from_copy(api_key=None, job_id=None):
@@ -48,7 +49,7 @@ def create_job_from_copy(api_key=None, job_id=None):
     Returns:
         A new Job
     """
-    job_id = job_id or 911851
+    job_id = job_id or 911946
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
     url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(
         job_id, api_key)
@@ -68,6 +69,7 @@ def add_data_to_job(job_id, csv_file, api_key=None):
         api_key (str): API token (use "CROWDFLOWER_API_KEY" env variable if not specified)
     """
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
+
     url = "https://api.crowdflower.com/v1/jobs/{}/upload.json?key={}&force=true".format(
         job_id, api_key)
 
