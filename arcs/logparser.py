@@ -158,22 +158,15 @@ if __name__ == "__main__":
                 recs_of_interest += 1
 
                 try:
-                    print json.dumps(record, cls=__JSONDateEncoder__)
+                    print(json.dumps(record, cls=__JSONDateEncoder__))
                 except Exception as e:
-                    print >> sys.stderr, "{}".format(e.message)
+                    print("{}".format(e.message), file=sys.stderr)
 
     total_time = time.time() - start
 
-    print >> sys.stderr, "Lines read: {}".format(lines_read)
-    print >> sys.stderr, "Number of records of interest: {}".format(
-        recs_of_interest)
-
-    print >> sys.stderr, "Total time: {} secs.".format(total_time)
-    print >> sys.stderr, "Lines per sec: {}".format(
-        lines_read / float(total_time))
-
-    print >> sys.stderr, "Earliest datetime found: {}".format(
-        earliest_timestamp.isoformat())
-
-    print >> sys.stderr, "Latest datetime found: {}".format(
-        latest_timestamp.isoformat())
+    print("Lines read: {}".format(lines_read), file=sys.stderr)
+    print("Number of records of interest: {}".format(recs_of_interest), file=sys.stderr)
+    print("Total time: {} secs.".format(total_time), file=sys.stderr)
+    print("Lines per sec: {}".format(lines_read / float(total_time)), file=sys.stderr)
+    print("Earliest datetime found: {}".format(earliest_timestamp.isoformat()), file=sys.stderr)
+    print("Latest datetime found: {}".format(latest_timestamp.isoformat()), file=sys.stderr)

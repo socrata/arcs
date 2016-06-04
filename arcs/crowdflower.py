@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 import re
@@ -5,10 +6,9 @@ import requests
 import simplejson
 import time
 import zipfile
-import StringIO
 from dateutil.parser import parse as dtparse
-from frozendict import frozendict
 from experiment import Job
+from frozendict import frozendict
 
 
 FXF_RE = re.compile(r'[a-z0-9]{4}-[a-z0-9]{4}$')
@@ -34,23 +34,25 @@ def job_from_dict(job_data):
 
     return Job(**data)
 
-headers = frozendict({'content-type': 'application/json', 'accept': 'application/json'})
+headers = frozendict({'content-type': 'application/json; charset=utf-8',
+                      'accept': 'application/json; charset=utf-8'})
 
 
-def create_job_from_copy(api_key=None, job_id=None):
+def create_job_from_copy(job_id, api_key=None):
     """
     Create a new CrowdFlower job from a previous job, copying existing test questions.
 
     Args:
-        api_key (str): Optional CrowdFlower API key; if not specified, we look in env.
         job_id (int): The unique job identifier of the job to copy
+        api_key (str): Optional CrowdFlower API key; if not specified, we look in env.
 
     Returns:
-        A new Arcs Job
+        A new Job
     """
-    job_id = job_id or 844991
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
-    url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(job_id, api_key)
+    url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(
+        job_id, api_key)
+
     r = requests.get(url, headers=headers)
     r.raise_for_status()
     return job_from_dict(r.json())
@@ -66,9 +68,18 @@ def add_data_to_job(job_id, csv_file, api_key=None):
         api_key (str): API token (use "CROWDFLOWER_API_KEY" env variable if not specified)
     """
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
-    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json?key={}&force=true".format(job_id, api_key)
+
+    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json".format(job_id)
+
+    params = {"key": api_key, "force": True}
+
     with open(csv_file) as f:
-        r = requests.put(url, data=f, headers=headers.copy(**{"content-type": "text/csv"}))
+        r = requests.put(
+            url,
+            data=f,
+            params=params,
+            headers=headers.copy(**{"content-type": "text/csv"}))
+
     r.raise_for_status()
 
 
@@ -156,7 +167,7 @@ def extract_json_from_csv(zip_data):
     full_json = {}
 
     for i, line in enumerate(zip_data):
-        unit = simplejson.loads(line)
+        unit = simplejson.loads(line.decode("utf-8"))
         full_json[i] = unit  # fix this
         data = unit.get('data')
         query = data.get('query')
@@ -204,7 +215,7 @@ def get_job_results(job_id, api_key=None):
             ret = requests.get(filled_get_url)
             # we are returning a bytestring that would be a zipfile, were it a file
             # containing a single file where each line is a json blob
-            zc = zipfile.ZipFile(StringIO.StringIO(ret.content))
+            zc = zipfile.ZipFile(io.BytesIO(ret.content))
             zip_data = zc.open(zc.namelist()[0])
             if zip_data:
                 break

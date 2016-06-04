@@ -1,0 +1,56 @@
+<div class="row-fluid">
+  <div class="span12">
+    <br />
+    <div class="row-fluid center-text" style="position:relative">
+      <div class="span4 well megaspan">
+        <h1 class="cml-blue">Query</h1>
+        <h3>The search term is:</h3>
+        <br />
+        <h2 id="searchbox" >{{query}}</h2>
+      </div>
+      <div class="span8 well megaspan">
+        <h1 class="cml-green">Result</h1>
+        <hr />
+        <h2 class="special pad-line">
+          <strong>{{name}}</strong>
+        </h2>
+        <p class="special pad-line">{{description}}</p>
+        <a target="_blank" href="{{link}}">
+          <i>Link to the original data from
+            <b>{{domain}}</b>
+          </i>
+        </a>
+        <br />
+        <div>
+          {{sample}}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <br clear="both" />
+  <br clear="both" />
+
+</div>
+
+<hr />
+
+<div class="row-fluid center-text" style="position:relative">
+  <cml:radios label="How well does this &lt;font class=&quot;   cml-green&quot;&gt;result&lt;/font&gt; match the &lt;font class=&quot;   cml-blue&quot;&gt;query&lt;/font&gt;? &lt;br /&gt; &lt;br /&gt;" name="relevance" validates="required" gold="true" aggregation="avg">
+
+    <cml:radio label="&lt;span class=&quot;label_term&quot;&gt; Irrelevant&lt;/span&gt;&lt;br /&gt;&lt;br /&gt; &lt;div class=&quot;pad_me&quot;&gt; &lt;span class=&quot;instructions_fake&quot;&gt;      &lt;li&gt; The intent of the query was not matched &lt;/li&gt;      &lt;li&gt; The results are irrelevant to the search query &lt;/li&gt;  &lt;/span&gt; &lt;div&gt;" value="0"></cml:radio>
+
+    <cml:radio label="&lt;span class=&quot;label_term&quot;&gt; Loosely relevant&lt;/span&gt;&lt;br /&gt;&lt;br /&gt; &lt;div class=&quot;pad_me&quot;&gt; &lt;span class=&quot;instructions_fake&quot;&gt;      &lt;li&gt; The intent of the query is poorly matched &lt;/li&gt;     &lt;li&gt; The result is somewhat related to the query, but it not a good match &lt;/li&gt;     &lt;/span&gt; &lt;div&gt;" value="1"></cml:radio>
+
+    <cml:radio label="&lt;span class=&quot;label_term&quot;&gt; Relevant&lt;/span&gt;&lt;br /&gt;&lt;br /&gt; &lt;div class=&quot;pad_me&quot;&gt; &lt;span class=&quot;instructions_fake&quot;&gt;     &lt;li&gt; Matches most of the query intent - or the most important part of the query. &lt;/li&gt;     &lt;li&gt; Technically, all parts of the intent are satisfied but result doesn't provide a full, clear and complete answer to the search. &lt;/li&gt;     &lt;/span&gt; &lt;div&gt;" value="2"></cml:radio>
+
+    <cml:radio label="&lt;span class=&quot;label_term&quot;&gt; Extremely relevant&lt;/span&gt;&lt;br /&gt;&lt;br /&gt; &lt;div class=&quot;pad_me&quot;&gt; &lt;span class=&quot;instructions_fake&quot;&gt;     &lt;li&gt; The query intent is clearly satisfied. This is exactly the product I was looking for &lt;/li&gt;      &lt;li&gt; Result is high quality &lt;/li&gt;     &lt;li&gt; Specifics of the Query appear in the Result  &lt;/li&gt;       &lt;/span&gt; &lt;div&gt;" value="3"></cml:radio>
+
+    <cml:radio label="&lt;span class=&quot;label_term&quot;&gt; Something went wrong / not enough information&lt;/span&gt;&lt;br /&gt;&lt;br /&gt; &lt;div class=&quot;pad_me&quot;&gt; &lt;span class=&quot;instructions_fake&quot;&gt;     &lt;li&gt; the result title and/or description are missing and the link is broken &lt;/li&gt;      &lt;li&gt; the result title and/or description text are in a foreign language &lt;/li&gt;       &lt;/span&gt; &lt;div&gt;" value="-1"></cml:radio>
+
+
+  </cml:radios>
+</div>
+<br clear="both" />
+<br />
+<hr />

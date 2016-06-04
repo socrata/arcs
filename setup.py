@@ -9,18 +9,16 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-install_requires_list = ['pandas==0.17.0',
-                         'matplotlib==1.4.3',
-                         'numpy==1.10.1',
-                         'frozendict==0.4',
-                         'simplejson==3.7.3',
-                         'requests[security]==2.7.0',
+install_requires_list = ['pandas>=0.18.1',
+                         'matplotlib>=1.5',
+                         'numpy>=1.11.0',
+                         'frozendict>=0.6',
+                         'simplejson>=3.8.2',
+                         'requests[security]>=2.10.0',
                          'psycopg2==2.6.1',
-                         'langdetect==1.0.5',
-                         'crowdflower==0.1.3',
-                         'scipy==0.16.0',
-                         'spacy==0.99']
-
+                         'langdetect>=1.0.6',
+                         'scipy>=0.17.1',
+                         'spacy>=0.100']
 
 
 class PyTest(TestCommand):
@@ -48,8 +46,8 @@ setup(
     include_package_data=True,
     name="arcs",
     version="0.0.1",
-    author="The AniML pack at Socrata",
-    author_email="animl@socrata.com",
+    author="The Discovery Team",
+    author_email="discovery-l@socrata.com",
     description=("A library for assessing relevance of Socrata's catalog "
                  "search"),
     license = "TBD",
