@@ -38,18 +38,17 @@ headers = frozendict({'content-type': 'application/json; charset=utf-8',
                       'accept': 'application/json; charset=utf-8'})
 
 
-def create_job_from_copy(api_key=None, job_id=None):
+def create_job_from_copy(job_id, api_key=None):
     """
     Create a new CrowdFlower job from a previous job, copying existing test questions.
 
     Args:
-        api_key (str): Optional CrowdFlower API key; if not specified, we look in env.
         job_id (int): The unique job identifier of the job to copy
+        api_key (str): Optional CrowdFlower API key; if not specified, we look in env.
 
     Returns:
         A new Job
     """
-    job_id = job_id or 911946
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
     url = "https://api.crowdflower.com/v1/jobs/{}/copy.json?key={}&gold=true".format(
         job_id, api_key)
@@ -70,11 +69,17 @@ def add_data_to_job(job_id, csv_file, api_key=None):
     """
     api_key = api_key or os.environ["CROWDFLOWER_API_KEY"]
 
-    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json?key={}&force=true".format(
-        job_id, api_key)
+    url = "https://api.crowdflower.com/v1/jobs/{}/upload.json".format(job_id)
+
+    params = {"key": api_key, "force": True}
 
     with open(csv_file) as f:
-        r = requests.put(url, data=f, headers=headers.copy(**{"content-type": "text/csv"}))
+        r = requests.put(
+            url,
+            data=f,
+            params=params,
+            headers=headers.copy(**{"content-type": "text/csv"}))
+
     r.raise_for_status()
 
 

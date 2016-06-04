@@ -143,7 +143,7 @@ def _join_sentences(acc, sentences, max_length):
 
 def cleanup_description(desc, nlp=None):
     """
-    Make a dataset description is readable and not ridiculously long.
+    Make sure a dataset description is readable and not ridiculously long.
 
     Args:
         desc (str): A dataset (or other core object) description
@@ -155,7 +155,7 @@ def cleanup_description(desc, nlp=None):
     analyzer = nlp or NLP
     desc = desc.replace("\r", "\n")
     desc_doc = analyzer(desc) if desc else desc
-    desc_sentences = [s.text.replace("\n", " ").strip() for s in desc_doc.sents] if desc else []
+    desc_sentences = [re.sub(r"\s+", " ", s.text).strip() for s in desc_doc.sents] if desc else []
 
     return _join_sentences("", desc_sentences, 400) if desc else desc
 

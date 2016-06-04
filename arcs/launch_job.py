@@ -56,7 +56,7 @@ def _transform_cetera_result(result, result_position, num_rows, num_columns):
     link (ie. URL), and the first sentence of description.
 
     Args:
-        result ():
+        result (dict): A single search result from Cetera
         result_position (int): The position of the result in the result set
         num_rows (int): The number of rows to show in the dataset sample
         num_columns (int): The number of columns to show in the dataset sample
@@ -215,7 +215,7 @@ def collect_search_results(groups, query_domain_file, num_results, num_rows, num
     return raw_results_df, expanded_results_df
 
 
-def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
+def submit_job(db_conn, groups, data_df, job_to_copy, output_file=None):
     """
     Create CrowdFlower job for catalog search result data in `data_df`.
 
@@ -227,8 +227,8 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
         db_conn (psycopg2.extensions.connection): Connection to a database
         groups (iterable): An iterable of GroupDefinitions
         data_df (pandas.DataFrame): A DataFrame of query, result data
+        job_to_copy (int): External identifier for existing job to copy for its test data
         output_file (str): Optional path to a CSV file to be created and submitted to CrowdFlower
-        job_to_copy (int): Optional external identifier for existing job to copy for its test data
 
     Returns:
         An Arcs Job with its external ID populated
@@ -236,7 +236,7 @@ def submit_job(db_conn, groups, data_df, output_file=None, job_to_copy=None):
     LOGGER.info("Creating CrowdFlower job")
 
     # create empty CrowdFlower job by copying test units from existing job
-    job = create_job_from_copy(job_id=job_to_copy)
+    job = create_job_from_copy(job_to_copy)
 
     # filter previously judged QRPs, so that we don't pay to have them rejudged
     num_rows_pre_filter = len(data_df)
@@ -377,7 +377,7 @@ def parse_args():
     parser.add_argument('-g', '--group', dest='groups', type=GroupDefinition.from_json,
                         action="append")
 
-    parser.add_argument('-j', '--job_to_copy', type=int, default=None,
+    parser.add_argument('-j', '--job_to_copy', type=int, required=True,
                         help='CrowdFlower job ID to copy for test data units')
 
     return parser.parse_args()
@@ -396,7 +396,7 @@ def main():
         args.full_csv_file, args.cetera_host, args.cetera_port)
 
     job = submit_job(
-        db_conn, groups, expanded_results_df, args.crowdflower_csv_file, args.job_to_copy)
+        db_conn, groups, expanded_results_df, args.job_to_copy, args.crowdflower_csv_file)
 
     persist_job_data(db_conn, job, groups, raw_results_df)
 
